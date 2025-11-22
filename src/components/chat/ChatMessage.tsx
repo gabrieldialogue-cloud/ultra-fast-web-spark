@@ -116,8 +116,8 @@ export function ChatMessage({
   return (
     <>
       <div className={cn(
-        "flex gap-3",
-        showSenderName ? "mb-2" : "mb-0",
+        "flex gap-2 sm:gap-3",
+        showSenderName ? "mb-3 sm:mb-4" : "mb-1.5 sm:mb-2",
         config.align === "right" && "flex-row-reverse",
         isHighlighted && "bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg -mx-2"
       )}>
@@ -139,20 +139,20 @@ export function ChatMessage({
             }}
           />
         ) : (
-          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full self-center", 
+          <div className={cn("flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full self-center", 
             remetenteTipo === "cliente" ? "bg-accent/20" : "bg-primary text-primary-foreground"
           )}>
-            <Icon className={cn("h-5 w-5", remetenteTipo === "cliente" ? "text-accent" : "text-primary-foreground")} />
+            <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", remetenteTipo === "cliente" ? "text-accent" : "text-primary-foreground")} />
           </div>
         )
       ) : (
-        <div className="w-10 shrink-0" />
+        <div className="w-8 sm:w-10 shrink-0" />
       )}
 
-      <div className={cn("flex flex-col gap-1 max-w-[70%]", config.align === "right" && "items-end")}>
+      <div className={cn("flex flex-col gap-1 max-w-[85%] sm:max-w-[75%] md:max-w-[70%]", config.align === "right" && "items-end")}>
         {showSenderName && (
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-base font-semibold text-foreground">
+            <span className="text-sm sm:text-base font-semibold text-foreground">
               {remetenteTipo === "cliente" && clientePushName ? clientePushName : config.label}
             </span>
           </div>
@@ -160,7 +160,7 @@ export function ChatMessage({
         
         {attachmentUrl && isImage && (
           <div 
-            className="rounded-lg overflow-hidden border border-border max-w-[250px] mb-2 cursor-pointer group relative"
+            className="rounded-xl overflow-hidden border border-border max-w-[200px] sm:max-w-[250px] mb-2 cursor-pointer group relative"
             onClick={() => setShowImageDialog(true)}
           >
             <img 
@@ -208,23 +208,23 @@ export function ChatMessage({
         {conteudo && (
           <div
             className={cn(
-              "rounded-2xl px-4 py-2.5 relative border shadow-sm",
+              "rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 relative border shadow-md",
               config.bubbleTone
             )}
           >
-            <p className="text-sm whitespace-pre-wrap break-words">
+            <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words">
               {highlightText(conteudo, searchTerm)}
             </p>
-            <div className="flex items-center justify-between gap-4 mt-1">
-              <span className="text-[11px] opacity-80">
+            <div className="flex items-center justify-between gap-3 mt-1.5">
+              <span className="text-[10px] sm:text-[11px] opacity-80">
                 {format(new Date(createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
               </span>
               {(remetenteTipo === "cliente" || remetenteTipo === "ia") && (
                 <span className="flex items-center gap-0.5">
                   {readAt ? (
-                    <CheckCheck className="h-3 w-3 text-primary" />
+                    <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                   ) : (
-                    <Check className="h-3 w-3 opacity-60" />
+                    <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-60" />
                   )}
                 </span>
               )}

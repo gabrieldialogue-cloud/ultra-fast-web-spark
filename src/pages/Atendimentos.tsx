@@ -446,6 +446,7 @@ export default function Atendimentos() {
           },
           (payload) => {
             const updatedMessage = payload.new as any;
+            console.log('Message UPDATE received:', updatedMessage.id, 'read_at:', updatedMessage.read_at);
             
             setMensagensVendedor((prev) => 
               prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)
@@ -543,24 +544,30 @@ export default function Atendimentos() {
 
     if (unreadMessages && unreadMessages.length > 0) {
       const ids = unreadMessages.map(m => m.id);
+      const now = new Date().toISOString();
+
+      console.log('Marking messages as read:', ids.length, 'messages');
 
       const { error } = await supabase
         .from("mensagens")
         .update({ 
-          read_at: new Date().toISOString(),
+          read_at: now,
           read_by_id: vendedorId
         })
         .in('id', ids);
 
       if (!error) {
+        console.log('Messages marked as read successfully');
         // Atualiza imediatamente no estado para refletir o tick em tempo real
         setMensagensVendedor(prev =>
           prev.map(msg =>
             ids.includes(msg.id)
-              ? { ...msg, read_at: new Date().toISOString(), read_by_id: vendedorId }
+              ? { ...msg, read_at: now, read_by_id: vendedorId }
               : msg
           )
         );
+      } else {
+        console.error('Error marking messages as read:', error);
       }
     }
   };
