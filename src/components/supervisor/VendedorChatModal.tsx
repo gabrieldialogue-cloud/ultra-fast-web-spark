@@ -39,6 +39,28 @@ export function VendedorChatModal({ vendedorId, vendedorNome, embedded = false }
   useEffect(() => {
     if (selectedAtendimentoId) {
       fetchMensagens(selectedAtendimentoId);
+      
+      // Setup realtime subscription for new messages
+      const channel = supabase
+        .channel('mensagens-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensagens',
+            filter: `atendimento_id=eq.${selectedAtendimentoId}`
+          },
+          (payload) => {
+            const newMessage = payload.new as Message;
+            setMensagens((prev) => [...prev, newMessage]);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [selectedAtendimentoId]);
 
