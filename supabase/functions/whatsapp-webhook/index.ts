@@ -92,8 +92,7 @@ serve(async (req) => {
     if (messages && messages.length > 0) {
       for (const message of messages) {
         const from = message.from; // Phone number
-        const messageBody = message.text?.body || '';
-        const messageType = message.type;
+        const messageType = message.type; // text, image, document, etc.
         const timestamp = new Date(parseInt(message.timestamp) * 1000).toISOString();
 
         console.log(`Message from ${from}: Type: ${messageType}`);
@@ -196,26 +195,144 @@ serve(async (req) => {
           console.log(`Atendimento assigned to vendedor: ${vendedorId}`);
         }
 
-        // Criar registro de mensagem do cliente
-        if (messageBody && atendimento?.id) {
-          const { data: novaMensagem, error: mensagemError } = await supabase
-            .from('mensagens')
-            .insert({
-              atendimento_id: atendimento.id,
-              conteudo: messageBody,
-              remetente_tipo: 'cliente',
-              remetente_id: null,
-              created_at: timestamp,
-              whatsapp_message_id: message.id,
-            })
-            .select()
-            .single();
+        if (!atendimento?.id) {
+          console.error('Atendimento not found or created, skipping message');
+          continue;
+        }
 
-          if (mensagemError) {
-            console.error('Error creating mensagem from WhatsApp:', mensagemError);
-          } else {
-            console.log('Mensagem criada a partir do WhatsApp:', novaMensagem?.id);
+        // Handle different message types
+        if (messageType === 'text') {
+          const messageBody = message.text?.body || '';
+
+          if (messageBody) {
+            const { data: novaMensagem, error: mensagemError } = await supabase
+              .from('mensagens')
+              .insert({
+                atendimento_id: atendimento.id,
+                conteudo: messageBody,
+                remetente_tipo: 'cliente',
+                remetente_id: null,
+                created_at: timestamp,
+                whatsapp_message_id: message.id,
+              })
+              .select()
+              .single();
+
+            if (mensagemError) {
+              console.error('Error creating mensagem from WhatsApp (text):', mensagemError);
+            } else {
+              console.log('Mensagem de texto criada a partir do WhatsApp:', novaMensagem?.id);
+            }
           }
+        } else if (messageType === 'image' || messageType === 'document') {
+          const media = message[messageType];
+          const mediaId = media?.id;
+          const mimeType: string | undefined = media?.mime_type;
+          const caption: string = media?.caption || '';
+          const filename: string | undefined = media?.filename;
+
+          if (!mediaId) {
+            console.error('Media message without media id, skipping');
+          } else {
+            const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
+            if (!accessToken) {
+              console.error('WHATSAPP_ACCESS_TOKEN not configured, cannot download media');
+            } else {
+              try {
+                // Get media URL from WhatsApp Graph API
+                const metaRes = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                });
+
+                if (!metaRes.ok) {
+                  const metaError = await metaRes.text();
+                  console.error('Error fetching media metadata from WhatsApp:', metaError);
+                  continue;
+                }
+
+                const metaData = await metaRes.json();
+                const mediaUrl: string | undefined = metaData.url;
+
+                if (!mediaUrl) {
+                  console.error('No media URL returned from WhatsApp');
+                  continue;
+                }
+
+                // Download media file
+                const fileRes = await fetch(mediaUrl, {
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                });
+
+                if (!fileRes.ok) {
+                  const fileError = await fileRes.text();
+                  console.error('Error downloading media from WhatsApp:', fileError);
+                  continue;
+                }
+
+                const arrayBuffer = await fileRes.arrayBuffer();
+                const fileBytes = new Uint8Array(arrayBuffer);
+
+                const isImage = messageType === 'image';
+                const fileExtension = filename?.split('.').pop() || (mimeType?.split('/')[1] ?? (isImage ? 'jpg' : 'bin'));
+                const safeFileName = filename || `${messageType}-${mediaId}.${fileExtension}`;
+                const storagePath = `${atendimento.id}/${Date.now()}-${safeFileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                  .from('chat-files')
+                  .upload(storagePath, fileBytes, {
+                    contentType: mimeType || (isImage ? 'image/jpeg' : 'application/octet-stream'),
+                  });
+
+                if (uploadError) {
+                  console.error('Error uploading media to Supabase storage:', uploadError);
+                  continue;
+                }
+
+                const { data: publicData } = supabase.storage
+                  .from('chat-files')
+                  .getPublicUrl(storagePath);
+
+                const publicUrl = publicData?.publicUrl;
+
+                if (!publicUrl) {
+                  console.error('Could not get public URL for media');
+                  continue;
+                }
+
+                const attachmentType = isImage ? 'image' : 'document';
+
+                const { data: novaMensagem, error: mensagemError } = await supabase
+                  .from('mensagens')
+                  .insert({
+                    atendimento_id: atendimento.id,
+                    conteudo: caption,
+                    remetente_tipo: 'cliente',
+                    remetente_id: null,
+                    created_at: timestamp,
+                    whatsapp_message_id: message.id,
+                    attachment_url: publicUrl,
+                    attachment_type: attachmentType,
+                    attachment_filename: filename || safeFileName,
+                  })
+                  .select()
+                  .single();
+
+                if (mensagemError) {
+                  console.error('Error creating mensagem from WhatsApp (media):', mensagemError);
+                } else {
+                  console.log('Mensagem de mídia criada a partir do WhatsApp:', novaMensagem?.id);
+                }
+              } catch (err) {
+                console.error('Unexpected error while processing WhatsApp media:', err);
+              }
+            }
+          }
+        } else {
+          console.log(`Ignoring unsupported WhatsApp message type: ${messageType}`);
         }
       }
     }
