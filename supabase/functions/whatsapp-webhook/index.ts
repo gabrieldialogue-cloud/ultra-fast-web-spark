@@ -65,24 +65,41 @@ serve(async (req) => {
           if (existingCliente) {
             cliente = existingCliente;
             
-            // Update cliente name if we have profile name from WhatsApp
+            // Update cliente data if we have profile info from WhatsApp
             const profileName = value?.contacts?.[0]?.profile?.name;
+            const profilePicture = value?.contacts?.[0]?.profile?.picture;
+            
+            const updates: any = {};
             if (profileName && existingCliente.nome.startsWith('Cliente ')) {
+              updates.nome = profileName;
+            }
+            if (profileName) {
+              updates.push_name = profileName;
+            }
+            if (profilePicture) {
+              updates.profile_picture_url = profilePicture;
+            }
+            
+            if (Object.keys(updates).length > 0) {
               await supabase
                 .from('clientes')
-                .update({ nome: profileName })
+                .update(updates)
                 .eq('id', existingCliente.id);
-              cliente.nome = profileName;
+              
+              cliente = { ...existingCliente, ...updates };
             }
           } else {
-            // Get profile name from WhatsApp contact info
+            // Get profile info from WhatsApp contact info
             const profileName = value?.contacts?.[0]?.profile?.name || `Cliente ${from}`;
+            const profilePicture = value?.contacts?.[0]?.profile?.picture;
             
             const { data: newCliente, error: clienteError } = await supabase
               .from('clientes')
               .insert({
                 nome: profileName,
                 telefone: from,
+                push_name: profileName,
+                profile_picture_url: profilePicture || null,
               })
               .select()
               .single();

@@ -15,6 +15,8 @@ interface AtendimentoCardProps {
   onClick: () => void;
   attachmentUrl?: string | null;
   attachmentType?: string | null;
+  profilePictureUrl?: string | null;
+  pushName?: string | null;
 }
 
 const statusConfig = {
@@ -49,19 +51,41 @@ export function AtendimentoCard({
   onClick,
   attachmentUrl,
   attachmentType,
+  profilePictureUrl,
+  pushName,
 }: AtendimentoCardProps) {
   const statusInfo = statusConfig[status];
   const timeAgo = formatDistanceToNow(new Date(updatedAt), { addSuffix: true, locale: ptBR });
   const hasImageAttachment = attachmentType?.startsWith('image/');
 
   return (
-    <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] bg-gradient-to-br from-card to-muted/30" onClick={onClick}>
+    <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] bg-gradient-to-b from-accent/15 to-transparent" onClick={onClick}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-semibold text-lg text-foreground">{clienteNome}</h3>
+              {profilePictureUrl ? (
+                <img 
+                  src={profilePictureUrl} 
+                  alt="Perfil" 
+                  className="h-10 w-10 rounded-full object-cover border-2 border-accent/30"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      const icon = document.createElement('div');
+                      icon.className = 'h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center';
+                      icon.innerHTML = '<svg class="h-5 w-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>';
+                      parent.appendChild(icon);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                  <User className="h-5 w-5 text-accent" />
+                </div>
+              )}
+              <h3 className="font-semibold text-lg text-foreground">{pushName || clienteNome}</h3>
             </div>
 
             <div className="flex items-center gap-3">

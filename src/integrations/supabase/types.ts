@@ -83,6 +83,8 @@ export type Database = {
           email: string | null
           id: string
           nome: string
+          profile_picture_url: string | null
+          push_name: string | null
           telefone: string
           updated_at: string | null
         }
@@ -91,6 +93,8 @@ export type Database = {
           email?: string | null
           id?: string
           nome: string
+          profile_picture_url?: string | null
+          push_name?: string | null
           telefone: string
           updated_at?: string | null
         }
@@ -99,6 +103,8 @@ export type Database = {
           email?: string | null
           id?: string
           nome?: string
+          profile_picture_url?: string | null
+          push_name?: string | null
           telefone?: string
           updated_at?: string | null
         }

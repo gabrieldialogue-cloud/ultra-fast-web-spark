@@ -13,6 +13,7 @@ interface ChatMessageProps {
   searchTerm?: string;
   isHighlighted?: boolean;
   readAt?: string | null;
+  showSenderName?: boolean;
 }
 
 const remetenteConfig = {
@@ -55,7 +56,8 @@ export function ChatMessage({
   attachmentFilename,
   searchTerm = "",
   isHighlighted = false,
-  readAt
+  readAt,
+  showSenderName = true
 }: ChatMessageProps) {
   const config = remetenteConfig[remetenteTipo];
   const Icon = config.icon;
@@ -109,37 +111,44 @@ export function ChatMessage({
 
   return (
     <div className={cn(
-      "flex gap-3 mb-4",
+      "flex gap-3",
+      showSenderName ? "mb-4" : "mb-2",
       config.align === "right" && "flex-row-reverse",
       isHighlighted && "bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg -mx-2"
     )}>
-      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", config.bgClass)}>
-        <Icon className="h-4 w-4 text-white" />
-      </div>
+      {showSenderName ? (
+        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", config.bgClass)}>
+          <Icon className="h-4 w-4 text-white" />
+        </div>
+      ) : (
+        <div className="w-8 shrink-0" />
+      )}
 
       <div className={cn("flex flex-col gap-1 max-w-[70%]", config.align === "right" && "items-end")}>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">{config.label}</span>
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(createdAt), "HH:mm", { locale: ptBR })}
-          </span>
-          {/* Read indicator for client/ia messages */}
-          {(remetenteTipo === 'cliente' || remetenteTipo === 'ia') && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              {readAt ? (
-                <>
-                  <CheckCheck className="h-3 w-3 text-blue-500" />
-                  <span className="text-blue-500">Lida</span>
-                </>
-              ) : (
-                <>
-                  <Check className="h-3 w-3" />
-                  <span>Enviada</span>
-                </>
-              )}
+        {showSenderName && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">{config.label}</span>
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(createdAt), "HH:mm", { locale: ptBR })}
             </span>
-          )}
-        </div>
+            {/* Read indicator for client/ia messages */}
+            {(remetenteTipo === 'cliente' || remetenteTipo === 'ia') && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {readAt ? (
+                  <>
+                    <CheckCheck className="h-3 w-3 text-blue-500" />
+                    <span className="text-blue-500">Lida</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3" />
+                    <span>Enviada</span>
+                  </>
+                )}
+              </span>
+            )}
+          </div>
+        )}
         
         {attachmentUrl && isImage && (
           <div className="rounded-lg overflow-hidden border border-border max-w-sm mb-2">

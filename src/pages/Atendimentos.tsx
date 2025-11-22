@@ -62,7 +62,7 @@ export default function Atendimentos() {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [scrollActiveConversas, setScrollActiveConversas] = useState(false);
   const [scrollActiveChat, setScrollActiveChat] = useState(false);
-  const [messageLimit, setMessageLimit] = useState(50);
+  const [messageLimit, setMessageLimit] = useState(15);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -332,7 +332,7 @@ export default function Atendimentos() {
         modelo_veiculo,
         status,
         created_at,
-        clientes (nome, telefone)
+        clientes (nome, telefone, push_name, profile_picture_url)
       `)
       .eq('vendedor_fixo_id', vendedorId)
       .neq('status', 'encerrado')
@@ -349,8 +349,8 @@ export default function Atendimentos() {
   // Fetch messages for selected atendimento (vendedor)
   useEffect(() => {
     if (selectedAtendimentoIdVendedor && !isSupervisor) {
-      setMessageLimit(50); // Reset limit
-      fetchMensagensVendedor(selectedAtendimentoIdVendedor, 50);
+      setMessageLimit(15); // Reset limit
+      fetchMensagensVendedor(selectedAtendimentoIdVendedor, 15);
       
       // Setup realtime subscription for new messages
       const messagesChannel = supabase
@@ -448,7 +448,7 @@ export default function Atendimentos() {
   };
 
   const loadMoreMessages = () => {
-    const newLimit = messageLimit + 50;
+    const newLimit = messageLimit + 15;
     setMessageLimit(newLimit);
     if (selectedAtendimentoIdVendedor) {
       fetchMensagensVendedor(selectedAtendimentoIdVendedor, newLimit);
@@ -1324,24 +1324,49 @@ export default function Atendimentos() {
                                      return (
                                        <button
                                          key={atendimento.id}
-                                         onClick={() => {
-                                           setSelectedAtendimentoIdVendedor(atendimento.id);
-                                           setMessageLimit(50);
-                                           fetchMensagensVendedor(atendimento.id, 50);
-                                         }}
-                                         className={`w-full text-left p-4 rounded-lg transition-all duration-300 hover:scale-[1.02] ${
-                                           selectedAtendimentoIdVendedor === atendimento.id 
-                                             ? 'bg-gradient-to-br from-transparent via-accent/15 to-accent/25 border-2 border-accent shadow-lg' 
-                                             : 'bg-gradient-to-br from-transparent to-accent/10 border border-border hover:border-accent/50 hover:shadow-md'
-                                         }`}
-                                       >
-                                        <div className="flex items-start justify-between mb-2">
-                                          <div className="flex items-center gap-2 flex-1">
-                                            <User className="h-4 w-4 text-muted-foreground" />
-                                            <span className="font-semibold text-sm">
-                                              {atendimento.clientes?.nome || "Cliente"}
-                                            </span>
-                                          </div>
+                                          onClick={() => {
+                                            setSelectedAtendimentoIdVendedor(atendimento.id);
+                                            setMessageLimit(15);
+                                            fetchMensagensVendedor(atendimento.id, 15);
+                                          }}
+                                          className={`w-full text-left p-4 rounded-lg transition-all duration-300 hover:scale-[1.02] ${
+                                            selectedAtendimentoIdVendedor === atendimento.id 
+                                              ? 'bg-gradient-to-b from-accent/20 to-transparent border-2 border-accent/50 shadow-lg' 
+                                              : 'bg-gradient-to-b from-accent/10 to-transparent border border-border hover:border-accent/50 hover:shadow-md'
+                                          }`}
+                                        >
+                                         <div className="flex items-start justify-between mb-2">
+                                           <div className="flex items-center gap-2 flex-1">
+                                             {atendimento.clientes?.profile_picture_url ? (
+                                               <img 
+                                                 src={atendimento.clientes.profile_picture_url} 
+                                                 alt="Perfil" 
+                                                 className="h-10 w-10 rounded-full object-cover border-2 border-accent/30"
+                                                 onError={(e) => {
+                                                   e.currentTarget.style.display = 'none';
+                                                   const parent = e.currentTarget.parentElement;
+                                                   if (parent) {
+                                                     const icon = document.createElement('div');
+                                                     icon.className = 'h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center';
+                                                     icon.innerHTML = '<svg class="h-5 w-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>';
+                                                     parent.insertBefore(icon, parent.firstChild);
+                                                   }
+                                                 }}
+                                               />
+                                             ) : (
+                                               <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                                                 <User className="h-5 w-5 text-accent" />
+                                               </div>
+                                             )}
+                                             <div>
+                                               <span className="font-semibold text-sm block">
+                                                 {atendimento.clientes?.push_name || atendimento.clientes?.nome || "Cliente"}
+                                               </span>
+                                               <span className="text-xs text-muted-foreground">
+                                                 {atendimento.clientes?.telefone}
+                                               </span>
+                                             </div>
+                                           </div>
                                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <Clock className="h-3 w-3" />
                                             <span>{format(new Date(atendimento.created_at), "HH:mm", { locale: ptBR })}</span>
@@ -1363,19 +1388,37 @@ export default function Atendimentos() {
                           </CardContent>
                         </Card>
 
-                        {/* Chat Area */}
+                         {/* Chat Area */}
                         <Card className="lg:col-span-2">
                           <CardHeader className="border-b">
                             <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <CardTitle className="text-base">
-                                  {atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.nome || "Selecione um atendimento"}
-                                </CardTitle>
-                                {selectedAtendimentoIdVendedor && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.telefone}
-                                  </p>
-                                )}
+                              <div className="flex items-center gap-3">
+                                {selectedAtendimentoIdVendedor && atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.profile_picture_url ? (
+                                  <img 
+                                    src={atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.profile_picture_url || ''} 
+                                    alt="Perfil" 
+                                    className="h-12 w-12 rounded-full object-cover border-2 border-accent/30"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : selectedAtendimentoIdVendedor ? (
+                                  <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center">
+                                    <User className="h-6 w-6 text-accent" />
+                                  </div>
+                                ) : null}
+                                <div>
+                                  <CardTitle className="text-base">
+                                    {atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.push_name || 
+                                     atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.nome || 
+                                     "Selecione um atendimento"}
+                                  </CardTitle>
+                                  {selectedAtendimentoIdVendedor && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.telefone}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                               {selectedAtendimentoIdVendedor && getStatusBadge(atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.status || "")}
                             </div>
@@ -1454,20 +1497,26 @@ export default function Atendimentos() {
                                         </div>
                                       ) : (
                                         <>
-                                          {filteredMensagensVendedor.map((mensagem) => (
-                                            <ChatMessage
-                                              key={mensagem.id}
-                                              remetenteTipo={mensagem.remetente_tipo}
-                                              conteudo={mensagem.conteudo}
-                                              createdAt={mensagem.created_at}
-                                              attachmentUrl={mensagem.attachment_url}
-                                              attachmentType={mensagem.attachment_type}
-                                              attachmentFilename={mensagem.attachment_filename}
-                                              searchTerm={searchMessages}
-                                              isHighlighted={highlightedMessageId === mensagem.id}
-                                              readAt={mensagem.read_at}
-                                            />
-                                          ))}
+                                          {filteredMensagensVendedor.map((mensagem, index) => {
+                                            const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
+                                            const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
+                                            
+                                            return (
+                                              <ChatMessage
+                                                key={mensagem.id}
+                                                remetenteTipo={mensagem.remetente_tipo}
+                                                conteudo={mensagem.conteudo}
+                                                createdAt={mensagem.created_at}
+                                                attachmentUrl={mensagem.attachment_url}
+                                                attachmentType={mensagem.attachment_type}
+                                                attachmentFilename={mensagem.attachment_filename}
+                                                searchTerm={searchMessages}
+                                                isHighlighted={highlightedMessageId === mensagem.id}
+                                                readAt={mensagem.read_at}
+                                                showSenderName={showSenderName}
+                                              />
+                                            );
+                                          })}
                                         </>
                                       )}
                                       {isClientTyping && (
