@@ -91,7 +91,9 @@ export function MediaGallery({ mensagens, onLoadMore, hasMoreMedia = false }: Me
                       alt="Mídia compartilhada"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <Download className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                       <p className="text-[10px] text-white font-medium">
                         {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
@@ -168,14 +170,19 @@ export function MediaGallery({ mensagens, onLoadMore, hasMoreMedia = false }: Me
                     </p>
                   </div>
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
-                    asChild
+                    onClick={() => {
+                      const link = document.createElement("a");
+                      link.href = selectedMedia.url;
+                      link.download = selectedMedia.filename || `imagem-${format(new Date(selectedMedia.createdAt), "ddMMyyyy-HHmmss")}.jpg`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
                   >
-                    <a href={selectedMedia.url} download target="_blank" rel="noopener noreferrer">
-                      <Download className="h-4 w-4 mr-2" />
-                      Baixar
-                    </a>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar Imagem
                   </Button>
                 </div>
               </div>

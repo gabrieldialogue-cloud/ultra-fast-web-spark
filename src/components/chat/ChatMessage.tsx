@@ -2,6 +2,9 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck } from "lucide-react";
+import { useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
   remetenteTipo: "ia" | "cliente" | "vendedor" | "supervisor";
@@ -63,6 +66,7 @@ export function ChatMessage({
   clientePushName,
   clienteProfilePicture
 }: ChatMessageProps) {
+  const [showImageDialog, setShowImageDialog] = useState(false);
   const config = remetenteConfig[remetenteTipo];
   const Icon = config.icon;
 
@@ -114,12 +118,13 @@ export function ChatMessage({
   const DocumentIcon = attachmentUrl && isDocument ? getDocumentIcon(attachmentFilename || attachmentUrl) : File;
 
   return (
-    <div className={cn(
-      "flex gap-3",
-      showSenderName ? "mb-2.5" : "mb-0",
-      config.align === "right" && "flex-row-reverse",
-      isHighlighted && "bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg -mx-2"
-    )}>
+    <>
+      <div className={cn(
+        "flex gap-3",
+        showSenderName ? "mb-2" : "mb-0",
+        config.align === "right" && "flex-row-reverse",
+        isHighlighted && "bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg -mx-2"
+      )}>
       {showSenderName ? (
         remetenteTipo === "cliente" && clienteProfilePicture ? (
           <img 
@@ -158,13 +163,18 @@ export function ChatMessage({
         )}
         
         {attachmentUrl && isImage && (
-          <div className="rounded-lg overflow-hidden border border-border max-w-xs mb-2">
+          <div 
+            className="rounded-lg overflow-hidden border border-border max-w-[250px] mb-2 cursor-pointer group relative"
+            onClick={() => setShowImageDialog(true)}
+          >
             <img 
               src={attachmentUrl} 
               alt="Anexo"
-              className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => window.open(attachmentUrl, "_blank")}
+              className="w-full h-auto group-hover:opacity-90 transition-opacity"
             />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+              <Download className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
           </div>
         )}
 
@@ -220,5 +230,48 @@ export function ChatMessage({
         )}
       </div>
     </div>
+
+    {/* Image Preview Dialog */}
+    {attachmentUrl && isImage && (
+      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+        <DialogContent className="max-w-4xl p-0">
+          <div className="relative">
+            <img
+              src={attachmentUrl}
+              alt="Visualização completa"
+              className="w-full h-auto max-h-[85vh] object-contain"
+            />
+            <div className="p-4 border-t bg-background">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">
+                    {remetenteTipo === "cliente" && clientePushName ? clientePushName : config.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement("a");
+                    link.href = attachmentUrl;
+                    link.download = `imagem-${format(new Date(createdAt), "ddMMyyyy-HHmmss")}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar Imagem
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+  </>
   );
 }
