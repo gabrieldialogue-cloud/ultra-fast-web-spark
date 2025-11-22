@@ -66,16 +66,11 @@ export default function Atendimentos() {
   const [messageLimit, setMessageLimit] = useState(10);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Initialize notification sound
-  useEffect(() => {
-    audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyA0fPTgjMGG2S36+eVSAwNU6zn77BdGAg+jdXvzHksBidzy/DajkILFFu06+qmVBELSKXh8r5uIQUsgs/z1YUyBhtmtvDnjUYOCFCr5O+zdxoJPY/W8sx5LQYme8rx2o1BBxVbta7qpVURDEik4fO+biEFLILP89WGMgYcZrjv6YxGDQhRq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVW7Su6qRUEQxIpOHzvm4hBSyDz/PVhjIGHGa57+mMRg0IUKvk77N3Ggk9j9fyzHktBiZ7y/HZjUEHFVu0ruqkVBEMSKTh875uIQUsgs/z1YUyBhxmue/pjEYNCFCr5O+zdxoJPY/X8sx5LQYme8vx2Y1BBxVatK7qpFQRDEik4fO+biEFLILP89WFMgYcZrnv6YxGDQhQq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVWrSu6qRUEQxIpOHzvm4hBSyCz/PVhTIGHGa57+mMRg0IUKvk77N3Ggk9j9fyzHktBiZ7y/HZjUEHFVq0ruqkVBEMSKTh875uIQUsgs/z1YUyBhxmue/pjEYNCFCr5O+zdxoJPY/X8sx5LQYme8vx2Y1BBxVatK7qpFQRDEik4fO+biEFLILP89WFMgYcZrnv6YxGDQhQq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVWrSu6qRUEQxIpOHzvm4hBSyCz/PVhTIGHGa57+mMRg0IUKvk77N3Ggk9j9fyzHktBiZ7y/HZjUEHFVq0ruqkVBEMSKTh875uIQUsgs/z1YUyBhxmue/pjEYNCFCr5O+zdxoJPY/X8sx5LQYme8vx2Y1BBxVatK7qpFQRDEik4fO+biEFLILP89WFMgYcZrnv6YxGDQhQq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVWrSu6qRUEQxIpOHzvm4hBSyC');
-  }, []);
 
   useEffect(() => {
     checkSupervisorRole();
@@ -424,11 +419,6 @@ export default function Atendimentos() {
               return [...prev, newMessage];
             });
             
-            // Play notification sound for new client or IA messages
-            if (newMessage.remetente_tipo === 'cliente' || newMessage.remetente_tipo === 'ia') {
-              audioRef.current?.play().catch(err => console.log('Audio play failed:', err));
-            }
-            
             // Auto scroll to bottom
             setTimeout(() => {
               if (scrollRef.current) {
@@ -447,10 +437,13 @@ export default function Atendimentos() {
           },
           (payload) => {
             const updatedMessage = payload.new as any;
-            console.log('Message UPDATE received:', updatedMessage.id, 'read_at:', updatedMessage.read_at);
             
             setMensagensVendedor((prev) => 
-              prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)
+              prev.map(msg => 
+                msg.id === updatedMessage.id 
+                  ? { ...msg, read_at: updatedMessage.read_at, read_by_id: updatedMessage.read_by_id }
+                  : msg
+              )
             );
           }
         )
