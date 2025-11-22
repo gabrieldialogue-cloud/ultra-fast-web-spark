@@ -34,6 +34,7 @@ export default function Atendimentos() {
   const [vendedores, setVendedores] = useState<any[]>([]);
   const [selectedVendedorId, setSelectedVendedorId] = useState<string | null>(null);
   const [chatMensagens, setChatMensagens] = useState<any[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     checkSupervisorRole();
@@ -95,6 +96,36 @@ export default function Atendimentos() {
     }
     
     calcularMetricasSupervisor(vendedorIds);
+    fetchUnreadCounts(vendedorIds);
+  };
+
+  const fetchUnreadCounts = async (vendedorIds: string[]) => {
+    const counts: Record<string, number> = {};
+    
+    for (const vendedorId of vendedorIds) {
+      const { data: atendimentos } = await supabase
+        .from('atendimentos')
+        .select('id')
+        .eq('vendedor_fixo_id', vendedorId)
+        .neq('status', 'encerrado');
+      
+      if (atendimentos) {
+        let totalUnread = 0;
+        for (const atendimento of atendimentos) {
+          const { count } = await supabase
+            .from('mensagens')
+            .select('*', { count: 'exact', head: true })
+            .eq('atendimento_id', atendimento.id)
+            .neq('remetente_tipo', 'supervisor')
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+          
+          totalUnread += count || 0;
+        }
+        counts[vendedorId] = totalUnread;
+      }
+    }
+    
+    setUnreadCounts(counts);
   };
 
   const calcularMetricasSupervisor = (vendedorIds: string[]) => {
@@ -127,8 +158,33 @@ export default function Atendimentos() {
   useEffect(() => {
     if (isSupervisor && atendimentos.length > 0 && vendedoresAtribuidos.length > 0) {
       calcularMetricasSupervisor(vendedoresAtribuidos);
+      fetchUnreadCounts(vendedoresAtribuidos);
     }
   }, [atendimentos, vendedoresAtribuidos, isSupervisor]);
+
+  // Realtime updates for unread counts
+  useEffect(() => {
+    if (isSupervisor && vendedoresAtribuidos.length > 0) {
+      const channel = supabase
+        .channel('mensagens-unread')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensagens'
+          },
+          () => {
+            fetchUnreadCounts(vendedoresAtribuidos);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isSupervisor, vendedoresAtribuidos]);
 
   const iaRespondendo = getAtendimentosByStatus('ia_respondendo');
   const aguardandoOrcamento = getAtendimentosByStatus('aguardando_orcamento');
@@ -320,13 +376,24 @@ export default function Atendimentos() {
                             <CollapsibleTrigger className="w-full" onClick={() => {
                               const newId = isExpanded ? null : vendedor.id;
                               setSelectedVendedorId(newId);
-                              if (newId) fetchVendedorMessages(newId);
+                              if (newId) {
+                                fetchVendedorMessages(newId);
+                                // Clear unread count when opening
+                                setUnreadCounts(prev => ({ ...prev, [newId]: 0 }));
+                              }
                             }}>
                               <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
                                 <div className="flex items-center justify-between">
-                                  <div>
-                                    <CardTitle className="text-base">{vendedor.nome}</CardTitle>
-                                    <CardDescription className="text-xs">{vendedor.especialidade}</CardDescription>
+                                  <div className="flex items-center gap-3">
+                                    <div>
+                                      <CardTitle className="text-base">{vendedor.nome}</CardTitle>
+                                      <CardDescription className="text-xs">{vendedor.especialidade}</CardDescription>
+                                    </div>
+                                    {unreadCounts[vendedor.id] > 0 && (
+                                      <Badge variant="destructive" className="ml-2">
+                                        {unreadCounts[vendedor.id]}
+                                      </Badge>
+                                    )}
                                   </div>
                                   {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                                 </div>
@@ -360,6 +427,9 @@ export default function Atendimentos() {
                                   vendedorId={vendedor.id}
                                   vendedorNome={vendedor.nome}
                                   embedded={true}
+                                  onNewMessage={() => {
+                                    fetchUnreadCounts(vendedoresAtribuidos);
+                                  }}
                                 />
                               </div>
                             </CollapsibleContent>

@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AtendimentoCard } from "@/components/atendimento/AtendimentoCard";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { MessageSquare, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Dashboard() {
   const [selectedAtendimento, setSelectedAtendimento] = useState<string | null>(null);
+  const [vendedorId, setVendedorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchVendedorId();
+  }, []);
+
+  const fetchVendedorId = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: usuarioData } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (usuarioData) {
+      setVendedorId(usuarioData.id);
+    }
+  };
 
   // Placeholder data - will be replaced with real Supabase queries
   const atendimentosAtivos = [];
@@ -142,6 +163,7 @@ export default function Dashboard() {
           mensagens={[]}
           onClose={() => setSelectedAtendimento(null)}
           onSendMessage={handleSendMessage}
+          vendedorId={vendedorId || undefined}
         />
       )}
     </MainLayout>

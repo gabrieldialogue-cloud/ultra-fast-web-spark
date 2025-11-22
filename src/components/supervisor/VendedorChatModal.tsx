@@ -1,15 +1,17 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare } from "lucide-react";
-import { useState, useEffect } from "react";
+import { MessageSquare, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
+import { Badge } from "@/components/ui/badge";
 
 interface VendedorChatModalProps {
   vendedorId: string;
   vendedorNome: string;
   embedded?: boolean;
+  onNewMessage?: () => void;
 }
 
 interface Message {
@@ -27,10 +29,47 @@ interface Atendimento {
   } | null;
 }
 
-export function VendedorChatModal({ vendedorId, vendedorNome, embedded = false }: VendedorChatModalProps) {
+export function VendedorChatModal({ vendedorId, vendedorNome, embedded = false, onNewMessage }: VendedorChatModalProps) {
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [selectedAtendimentoId, setSelectedAtendimentoId] = useState<string | null>(null);
   const [mensagens, setMensagens] = useState<Message[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize notification sound
+  useEffect(() => {
+    audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSyA0fPTgjMGG2S36+eVSAwNU6zn77BdGAg+jdXvzHksBidzy/DajkILFFu06+qmVBELSKXh8r5uIQUsgs/z1YUyBhtmtvDnjUYOCFCr5O+zdxoJPY/W8sx5LQYme8rx2o1BB\
+xVbta7qpVURDEik4fO+biEFLILP89WGMgYcZrjv6YxGDQhRq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVW7Su6qRUEQxIpOHzvm4hBSyDz/PVhjIGHGa57+mMRg0IUKvk77N3Ggk9j9fyzHktBiZ7y/HZjUEHFVu0ruqkVBEMSKTh875uIQUsgs/z1YUyBhxmue/pjEYNCFCr5O+zdxoJPY/X8sx5LQYme8vx2Y1BBxVatK7qpFQRDEik4fO+biEFLILP89WFMgYcZrnv6YxGDQhQq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVWrSu6qRUEQxIpOHzvm4hBSyCz/PVhTIGHGa57+mMRg0IUKvk77N3Ggk9j9fyzHktBiZ7y/HZjUEHFVq0ruqkVBEMSKTh875uIQUsgs/z1YUyBhxmue/pjEYNCFCr5O+zdxoJPY/X8sx5LQYme8vx2Y1BBxVatK7qpFQRDEik4fO+biEFLILP89WFMgYcZrnv6YxGDQhQq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVWrSu6qRUEQxIpOHzvm4hBSyCz/PVhTIGHGa57+mMRg0IUKvk77N3Ggk9j9fyzHktBiZ7y/HZjUEHFVq0ruqkVBEMSKTh875uIQUsgs/z1YUyBhxmue/pjEYNCFCr5O+zdxoJPY/X8sx5LQYme8vx2Y1BBxVatK7qpFQRDEik4fO+biEFLILP89WFMgYcZrnv6YxGDQhQq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVWrSu6qRUEQxIpOHzvm4hBSyC');
+  }, []);
+
+  // Track typing status via Realtime
+  useEffect(() => {
+    const channel = supabase.channel(`typing:${vendedorId}`);
+    
+    channel
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (payload.vendedorId === vendedorId && payload.isTyping) {
+          setIsTyping(true);
+          
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+          }, 3000);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      supabase.removeChannel(channel);
+    };
+  }, [vendedorId]);
 
   useEffect(() => {
     fetchAtendimentos();
@@ -54,6 +93,12 @@ export function VendedorChatModal({ vendedorId, vendedorNome, embedded = false }
           (payload) => {
             const newMessage = payload.new as Message;
             setMensagens((prev) => [...prev, newMessage]);
+            
+            // Play notification sound if message is from vendedor or cliente
+            if (newMessage.remetente_tipo === 'vendedor' || newMessage.remetente_tipo === 'cliente') {
+              audioRef.current?.play().catch(err => console.log('Audio play failed:', err));
+              onNewMessage?.();
+            }
           }
         )
         .subscribe();
@@ -62,7 +107,7 @@ export function VendedorChatModal({ vendedorId, vendedorNome, embedded = false }
         supabase.removeChannel(channel);
       };
     }
-  }, [selectedAtendimentoId]);
+  }, [selectedAtendimentoId, onNewMessage]);
 
   const fetchAtendimentos = async () => {
     const { data } = await supabase
@@ -125,6 +170,12 @@ export function VendedorChatModal({ vendedorId, vendedorNome, embedded = false }
                           createdAt={mensagem.created_at}
                         />
                       ))}
+                      {isTyping && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>{vendedorNome} está digitando...</span>
+                        </div>
+                      )}
                     </div>
                   </ScrollArea>
                 </CardContent>
