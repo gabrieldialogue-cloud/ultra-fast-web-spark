@@ -18,10 +18,7 @@ export function AlteseLogoIcon({ className = "h-10 w-10" }: { className?: string
       
       {/* Engrenagem estilizada inspirada no logo original */}
       <g transform="translate(50, 50)">
-        {/* Anel externo da engrenagem */}
-        <circle cx="0" cy="0" r="28" fill="none" stroke="white" strokeWidth="6" opacity="0.9"/>
-        
-        {/* Dentes da engrenagem - 6 dentes principais */}
+        {/* Dentes da engrenagem - 8 dentes uniformes */}
         <g fill="white" opacity="0.9">
           {/* Animação de rotação sutil no centro */}
           <animateTransform
@@ -30,30 +27,45 @@ export function AlteseLogoIcon({ className = "h-10 w-10" }: { className?: string
             type="rotate"
             from="0 0 0"
             to="360 0 0"
-            dur="12s"
+            dur="15s"
             repeatCount="indefinite"
           />
           
-          {/* Dente superior */}
-          <rect x="-4" y="-32" width="8" height="8" rx="1"/>
-          {/* Dente superior direito */}
-          <rect x="24" y="-16" width="8" height="8" rx="1"/>
-          {/* Dente inferior direito */}
-          <rect x="24" y="8" width="8" height="8" rx="1"/>
-          {/* Dente inferior */}
-          <rect x="-4" y="24" width="8" height="8" rx="1"/>
-          {/* Dente inferior esquerdo */}
-          <rect x="-32" y="8" width="8" height="8" rx="1"/>
-          {/* Dente superior esquerdo */}
-          <rect x="-32" y="-16" width="8" height="8" rx="1"/>
+          {/* Dente 1 - Superior */}
+          <rect x="-3" y="-35" width="6" height="10" rx="1"/>
+          {/* Dente 2 - Superior direito */}
+          <rect x="18" y="-27" width="6" height="10" rx="1" transform="rotate(45 21 -22)"/>
+          {/* Dente 3 - Direito */}
+          <rect x="28" y="-3" width="10" height="6" rx="1"/>
+          {/* Dente 4 - Inferior direito */}
+          <rect x="18" y="17" width="6" height="10" rx="1" transform="rotate(-45 21 22)"/>
+          {/* Dente 5 - Inferior */}
+          <rect x="-3" y="25" width="6" height="10" rx="1"/>
+          {/* Dente 6 - Inferior esquerdo */}
+          <rect x="-24" y="17" width="6" height="10" rx="1" transform="rotate(45 -21 22)"/>
+          {/* Dente 7 - Esquerdo */}
+          <rect x="-38" y="-3" width="10" height="6" rx="1"/>
+          {/* Dente 8 - Superior esquerdo */}
+          <rect x="-24" y="-27" width="6" height="10" rx="1" transform="rotate(-45 -21 -22)"/>
         </g>
         
-        {/* Centro da engrenagem */}
-        <circle cx="0" cy="0" r="14" fill="white" opacity="0.95"/>
+        {/* Anel externo da engrenagem */}
+        <circle cx="0" cy="0" r="22" fill="white" opacity="0.95"/>
         
-        {/* Elemento central - símbolo euro estilizado ou 'e' */}
-        <g fill="url(#primaryGradient)">
-          <path d="M -6 -8 L 6 -8 L 6 -4 L -2 -4 L -2 0 L 4 0 L 4 4 L -2 4 L -2 8 L 6 8 L 6 12 L -6 12 L -6 -8 Z" opacity="0.9"/>
+        {/* Anel interno decorativo */}
+        <circle cx="0" cy="0" r="18" fill="url(#primaryGradient)" opacity="0.3"/>
+        
+        {/* Centro da engrenagem - furo central */}
+        <circle cx="0" cy="0" r="8" fill="url(#primaryGradient)" opacity="0.9"/>
+        
+        {/* Detalhes internos - parafusos decorativos */}
+        <g fill="white" opacity="0.6">
+          <circle cx="0" cy="-12" r="1.5"/>
+          <circle cx="10" cy="-6" r="1.5"/>
+          <circle cx="10" cy="6" r="1.5"/>
+          <circle cx="0" cy="12" r="1.5"/>
+          <circle cx="-10" cy="6" r="1.5"/>
+          <circle cx="-10" cy="-6" r="1.5"/>
         </g>
       </g>
       
