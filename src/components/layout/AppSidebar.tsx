@@ -1,6 +1,7 @@
-import { Home, MessageSquare, FileText, TrendingUp, Settings, User, LogOut, Shield } from "lucide-react";
+import { Home, MessageSquare, FileText, TrendingUp, Settings, User, LogOut, Shield, Users } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,18 +23,36 @@ const menuItems = [
   { title: "Atendimentos", url: "/atendimentos", icon: MessageSquare },
   { title: "Orçamentos", url: "/orcamentos", icon: FileText },
   { title: "Pós-venda", url: "/pos-venda", icon: TrendingUp },
+  { title: "Contatos", url: "/contatos", icon: Users },
 ];
 
 const bottomItems = [
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Perfil", url: "/perfil", icon: User },
-  { title: "Super Admin", url: "/super-admin", icon: Shield, restricted: true },
 ];
 
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkSuperAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'super_admin')
+          .single();
+        
+        setIsSuperAdmin(!!data);
+      }
+    };
+    checkSuperAdmin();
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -93,14 +112,8 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild>
                       <NavLink
                         to={item.url}
-                        className={`flex items-center gap-3 px-4 py-3 text-sidebar-foreground transition-all rounded-lg mx-2 ${
-                          item.restricted ? "hover:bg-destructive/20 hover:text-destructive" : "hover:bg-sidebar-accent"
-                        }`}
-                        activeClassName={`${
-                          item.restricted
-                            ? "bg-gradient-to-r from-destructive to-accent text-white"
-                            : "bg-gradient-to-r from-primary to-secondary text-white"
-                        } font-medium shadow-md`}
+                        className="flex items-center gap-3 px-4 py-3 text-sidebar-foreground transition-all hover:bg-sidebar-accent rounded-lg mx-2"
+                        activeClassName="bg-gradient-to-r from-primary to-secondary text-white font-medium shadow-md"
                       >
                         <item.icon className="h-5 w-5" />
                         {open && <span>{item.title}</span>}
@@ -108,6 +121,20 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+                {isSuperAdmin && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to="/super-admin"
+                        className="flex items-center gap-3 px-4 py-3 text-sidebar-foreground transition-all hover:bg-destructive/20 hover:text-destructive rounded-lg mx-2"
+                        activeClassName="bg-gradient-to-r from-destructive to-accent text-white font-medium shadow-md"
+                      >
+                        <Shield className="h-5 w-5" />
+                        {open && <span>Super Admin</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <button
