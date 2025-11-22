@@ -15,6 +15,10 @@ import { VendedorChatModal } from "@/components/supervisor/VendedorChatModal";
 import { HistoricoAtendimentos } from "@/components/supervisor/HistoricoAtendimentos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Send } from "lucide-react";
+import { toast } from "sonner";
 
 type DetailType = 
   | "ia_respondendo" 
@@ -44,8 +48,14 @@ export default function Atendimentos() {
   const [atendimentosVendedor, setAtendimentosVendedor] = useState<any[]>([]);
   const [selectedAtendimentoIdVendedor, setSelectedAtendimentoIdVendedor] = useState<string | null>(null);
   const [mensagensVendedor, setMensagensVendedor] = useState<any[]>([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [isClientTyping, setIsClientTyping] = useState(false);
+  const [isTypingVendedor, setIsTypingVendedor] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Initialize notification sound
   useEffect(() => {
@@ -329,7 +339,7 @@ export default function Atendimentos() {
       fetchMensagensVendedor(selectedAtendimentoIdVendedor);
       
       // Setup realtime subscription for new messages
-      const channel = supabase
+      const messagesChannel = supabase
         .channel('mensagens-realtime-vendedor')
         .on(
           'postgres_changes',
@@ -358,8 +368,32 @@ export default function Atendimentos() {
         )
         .subscribe();
 
+      // Setup typing indicator listener
+      const typingChannel = supabase
+        .channel(`typing:${selectedAtendimentoIdVendedor}`)
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+          if (payload.atendimentoId === selectedAtendimentoIdVendedor && payload.remetenteTipo === 'cliente') {
+            setIsClientTyping(payload.isTyping);
+            
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current);
+            }
+            
+            if (payload.isTyping) {
+              typingTimeoutRef.current = setTimeout(() => {
+                setIsClientTyping(false);
+              }, 3000);
+            }
+          }
+        })
+        .subscribe();
+
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(messagesChannel);
+        supabase.removeChannel(typingChannel);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
       };
     }
   }, [selectedAtendimentoIdVendedor, isSupervisor]);
@@ -389,6 +423,114 @@ export default function Atendimentos() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [mensagensVendedor, isSupervisor]);
+
+  // Setup typing indicator broadcast
+  useEffect(() => {
+    if (!selectedAtendimentoIdVendedor || isSupervisor) return;
+
+    // Initialize typing broadcast channel
+    typingChannelRef.current = supabase.channel(`typing:${selectedAtendimentoIdVendedor}`);
+    typingChannelRef.current.subscribe();
+
+    return () => {
+      if (typingChannelRef.current) {
+        supabase.removeChannel(typingChannelRef.current);
+      }
+    };
+  }, [selectedAtendimentoIdVendedor, isSupervisor]);
+
+  // Send typing indicator
+  useEffect(() => {
+    if (!selectedAtendimentoIdVendedor || !typingChannelRef.current || isSupervisor) return;
+
+    if (isTypingVendedor) {
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { 
+          atendimentoId: selectedAtendimentoIdVendedor, 
+          remetenteTipo: 'vendedor',
+          isTyping: true 
+        }
+      });
+    } else {
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { 
+          atendimentoId: selectedAtendimentoIdVendedor, 
+          remetenteTipo: 'vendedor',
+          isTyping: false 
+        }
+      });
+    }
+  }, [isTypingVendedor, selectedAtendimentoIdVendedor, isSupervisor]);
+
+  // Send message function
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !selectedAtendimentoIdVendedor || !vendedorId || isSending) {
+      return;
+    }
+
+    const trimmedMessage = messageInput.trim();
+    
+    // Validate message length
+    if (trimmedMessage.length > 1000) {
+      toast.error("Mensagem muito longa. Máximo de 1000 caracteres.");
+      return;
+    }
+
+    setIsSending(true);
+    setIsTypingVendedor(false);
+
+    try {
+      const { error } = await supabase
+        .from('mensagens')
+        .insert({
+          atendimento_id: selectedAtendimentoIdVendedor,
+          remetente_id: vendedorId,
+          remetente_tipo: 'vendedor',
+          conteudo: trimmedMessage
+        });
+
+      if (error) throw error;
+
+      setMessageInput("");
+      
+      // Scroll to bottom after sending
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      toast.error("Erro ao enviar mensagem. Tente novamente.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Handle input change with typing indicator
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMessageInput(value);
+    
+    // Set typing indicator
+    if (value.trim() && !isTypingVendedor) {
+      setIsTypingVendedor(true);
+    } else if (!value.trim() && isTypingVendedor) {
+      setIsTypingVendedor(false);
+    }
+  };
+
+  // Handle key press (Enter to send)
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -744,7 +886,7 @@ export default function Atendimentos() {
                         </div>
                       </CardHeader>
                       <CardContent className="p-0">
-                        <ScrollArea className="h-[450px] p-4" ref={scrollRef}>
+                        <ScrollArea className="h-[400px] p-4" ref={scrollRef}>
                           {!selectedAtendimentoIdVendedor ? (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                               <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
@@ -765,9 +907,46 @@ export default function Atendimentos() {
                                   createdAt={mensagem.created_at}
                                 />
                               ))}
+                              {isClientTyping && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>Cliente está digitando...</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </ScrollArea>
+                        
+                        {/* Input Area */}
+                        {selectedAtendimentoIdVendedor && (
+                          <div className="border-t p-4 bg-muted/30">
+                            <div className="flex gap-2">
+                              <Textarea
+                                value={messageInput}
+                                onChange={handleInputChange}
+                                onKeyPress={handleKeyPress}
+                                placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
+                                className="min-h-[60px] max-h-[120px] resize-none"
+                                disabled={isSending}
+                              />
+                              <Button
+                                onClick={handleSendMessage}
+                                disabled={!messageInput.trim() || isSending}
+                                size="icon"
+                                className="h-[60px] w-[60px] shrink-0"
+                              >
+                                {isSending ? (
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <Send className="h-5 w-5" />
+                                )}
+                              </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {messageInput.length}/1000 caracteres
+                            </p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
