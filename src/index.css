@@ -68,61 +68,61 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Altese Dark Theme - Mais coeso e colorido */
-    --background: 213 100% 6%; /* Azul escuro Altese */
+    /* Altese Dark Theme - Melhor contraste e visibilidade */
+    --background: 213 100% 8%; /* Azul escuro Altese mais legível */
     --foreground: 0 0% 98%;
 
-    --card: 213 90% 10%; /* Azul escuro para cards */
+    --card: 213 70% 12%; /* Cards com melhor contraste */
     --card-foreground: 0 0% 98%;
 
-    --popover: 213 90% 10%;
+    --popover: 213 70% 12%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 216 88% 55%; /* Azul claro mais vibrante */
+    --primary: 216 88% 58%; /* Azul mais vibrante e visível */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 213 100% 20%; /* Azul intermediário */
+    --secondary: 213 90% 35%; /* Azul intermediário mais visível */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 213 50% 15%; /* Azul acinzentado */
-    --muted-foreground: 0 0% 85%;
+    --muted: 213 40% 18%; /* Melhor contraste para muted */
+    --muted-foreground: 0 0% 90%;
 
-    --accent: 28 100% 55%; /* Laranja mais claro */
+    --accent: 28 100% 58%; /* Laranja mais claro e visível */
     --accent-foreground: 0 0% 100%;
 
-    --success: 154 100% 40%; /* Verde vibrante */
+    --success: 154 100% 42%; /* Verde vibrante e legível */
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 50%;
+    --destructive: 0 70% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 216 70% 25%; /* Borda azul suave */
-    --input: 213 50% 15%;
-    --ring: 216 88% 55%;
+    --border: 216 60% 28%; /* Borda mais visível */
+    --input: 213 50% 18%;
+    --ring: 216 88% 58%;
 
-    /* Altese colors ajustadas para dark */
-    --altese-blue: 213 100% 40%;
-    --altese-blue-light: 216 88% 60%;
-    --altese-orange: 28 100% 60%;
-    --altese-green: 154 100% 45%;
-    --altese-gray-light: 213 20% 25%;
-    --altese-gray-medium: 213 15% 40%;
-    --altese-gray-dark: 0 0% 85%;
+    /* Altese colors ajustadas para dark com melhor visibilidade */
+    --altese-blue: 213 100% 45%;
+    --altese-blue-light: 216 88% 65%;
+    --altese-orange: 28 100% 62%;
+    --altese-green: 154 100% 48%;
+    --altese-gray-light: 213 20% 30%;
+    --altese-gray-medium: 213 15% 45%;
+    --altese-gray-dark: 0 0% 90%;
 
-    /* Status colors for dark mode */
-    --status-ia: 216 88% 60%;
-    --status-waiting: 213 15% 40%;
-    --status-intervening: 154 100% 45%;
+    /* Status colors for dark mode com melhor visibilidade */
+    --status-ia: 216 88% 65%;
+    --status-waiting: 213 15% 45%;
+    --status-intervening: 154 100% 48%;
 
-    /* Sidebar dark com azul Altese */
-    --sidebar-background: 213 100% 8%;
+    /* Sidebar dark com melhor contraste */
+    --sidebar-background: 213 100% 10%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 216 88% 55%;
+    --sidebar-primary: 216 88% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 70% 15%;
+    --sidebar-accent: 213 60% 18%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 216 70% 20%;
-    --sidebar-ring: 28 100% 55%;
+    --sidebar-border: 216 60% 25%;
+    --sidebar-ring: 28 100% 58%;
   }
 }
 

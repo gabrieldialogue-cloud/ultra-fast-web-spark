@@ -12,6 +12,7 @@ import PosVenda from "./pages/PosVenda";
 import Configuracoes from "./pages/Configuracoes";
 import Perfil from "./pages/Perfil";
 import SuperAdmin from "./pages/SuperAdmin";
+import Contatos from "./pages/Contatos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/atendimentos" element={<Atendimentos />} />
             <Route path="/orcamentos" element={<Orcamentos />} />
             <Route path="/pos-venda" element={<PosVenda />} />
+            <Route path="/contatos" element={<Contatos />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
             <Route path="/perfil" element={<Perfil />} />
             <Route path="/super-admin" element={<SuperAdmin />} />
