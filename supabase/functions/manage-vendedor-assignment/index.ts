@@ -30,9 +30,13 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log("Requisição recebida:", JSON.stringify(body));
     const { action, supervisor_id, vendedor_id, assignment_id } = body;
+    
+    console.log("Action extraído:", action);
 
     if (!action) {
+      console.error("Action não informado");
       return new Response(
         JSON.stringify({ error: "Ação não informada" }),
         { status: 400, headers: jsonHeaders },
@@ -40,6 +44,7 @@ serve(async (req) => {
     }
 
     if (action === "assign") {
+      console.log("Processando assign:", { supervisor_id, vendedor_id });
       if (!supervisor_id || !vendedor_id) {
         return new Response(
           JSON.stringify({ error: "supervisor_id e vendedor_id são obrigatórios" }),
@@ -59,6 +64,7 @@ serve(async (req) => {
         );
       }
 
+      console.log("Atribuição criada com sucesso");
       return new Response(
         JSON.stringify({ success: true, action: "assign" }),
         { status: 200, headers: jsonHeaders },
@@ -66,6 +72,7 @@ serve(async (req) => {
     }
 
     if (action === "unassign") {
+      console.log("Processando unassign:", { assignment_id });
       if (!assignment_id) {
         return new Response(
           JSON.stringify({ error: "assignment_id é obrigatório" }),
@@ -86,6 +93,7 @@ serve(async (req) => {
         );
       }
 
+      console.log("Atribuição removida com sucesso");
       return new Response(
         JSON.stringify({ success: true, action: "unassign" }),
         { status: 200, headers: jsonHeaders },
@@ -93,6 +101,7 @@ serve(async (req) => {
     }
 
     if (action === "list") {
+      console.log("Processando list");
       const { data, error } = await supabase
         .from("vendedor_supervisor")
         .select(`
@@ -111,14 +120,16 @@ serve(async (req) => {
         );
       }
 
+      console.log("Atribuições listadas com sucesso:", data?.length || 0);
       return new Response(
         JSON.stringify({ success: true, data }),
         { status: 200, headers: jsonHeaders },
       );
     }
 
+    console.error("Action não reconhecido:", action);
     return new Response(
-      JSON.stringify({ error: "Ação inválida" }),
+      JSON.stringify({ error: "Ação inválida", received_action: action }),
       { status: 400, headers: jsonHeaders },
     );
   } catch (err) {
