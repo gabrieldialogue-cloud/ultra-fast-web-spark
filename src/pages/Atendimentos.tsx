@@ -415,10 +415,18 @@ export default function Atendimentos() {
           (payload) => {
             const newMessage = payload.new as any;
             
+            // Add status for non-client messages
+            const messageWithStatus = {
+              ...newMessage,
+              status: (newMessage.remetente_tipo === 'vendedor' || newMessage.remetente_tipo === 'supervisor' || newMessage.remetente_tipo === 'ia')
+                ? 'enviada' as const
+                : undefined
+            };
+            
             setMensagensVendedor((prev) => {
               const exists = prev.some(msg => msg.id === newMessage.id);
               if (exists) return prev;
-              return [...prev, newMessage];
+              return [...prev, messageWithStatus];
             });
             
             // Auto scroll to bottom
@@ -443,7 +451,12 @@ export default function Atendimentos() {
             setMensagensVendedor((prev) => 
               prev.map(msg => 
                 msg.id === updatedMessage.id 
-                  ? { ...msg, read_at: updatedMessage.read_at, read_by_id: updatedMessage.read_by_id }
+                  ? { 
+                      ...msg, 
+                      read_at: updatedMessage.read_at, 
+                      read_by_id: updatedMessage.read_by_id,
+                      status: updatedMessage.read_at ? "lida" as const : msg.status
+                    }
                   : msg
               )
             );
@@ -504,8 +517,16 @@ export default function Atendimentos() {
       .limit(queryLimit);
     
     if (data) {
+      // Add status to messages based on read_at
+      const messagesWithStatus = data.map(msg => ({
+        ...msg,
+        status: (msg.remetente_tipo === 'vendedor' || msg.remetente_tipo === 'supervisor' || msg.remetente_tipo === 'ia')
+          ? (msg.read_at ? 'lida' as const : 'enviada' as const)
+          : undefined
+      }));
+      
       // Reverse to show oldest first, newest last
-      setMensagensVendedor([...data].reverse());
+      setMensagensVendedor([...messagesWithStatus].reverse());
       
       // Mark unread messages as read
       await markMessagesAsRead(atendimentoId);
@@ -641,7 +662,8 @@ export default function Atendimentos() {
         attachment_type: null,
         attachment_filename: null,
         read_at: null,
-        read_by_id: null
+        read_by_id: null,
+        status: "enviando" as const
       };
       
       setMensagensVendedor(prev => [...prev, optimisticMessage]);
@@ -665,9 +687,9 @@ export default function Atendimentos() {
 
       if (dbResult.error) throw dbResult.error;
 
-      // Replace optimistic message with real one
+      // Replace optimistic message with real one and mark as "enviada"
       setMensagensVendedor(prev => 
-        prev.map(msg => msg.id === optimisticMessage.id ? dbResult.data : msg)
+        prev.map(msg => msg.id === optimisticMessage.id ? { ...dbResult.data, status: "enviada" as const } : msg)
       );
 
       // Send WhatsApp in background (non-blocking)
@@ -1657,7 +1679,7 @@ export default function Atendimentos() {
                                               </div>
                                             ) : (
                                               <>
-                                                {filteredMensagensVendedor.map((mensagem, index) => {
+                                                 {filteredMensagensVendedor.map((mensagem, index) => {
                                                   const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
                                                   const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
                                                   const currentAtendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
@@ -1677,6 +1699,7 @@ export default function Atendimentos() {
                                                       showSenderName={showSenderName}
                                                       clientePushName={currentAtendimento?.clientes?.push_name}
                                                       clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
+                                                      status={mensagem.status}
                                                     />
                                                   );
                                                 })}

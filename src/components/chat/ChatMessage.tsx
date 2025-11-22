@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck } from "lucide-react";
+import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck, Clock } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ interface ChatMessageProps {
   showSenderName?: boolean;
   clientePushName?: string | null;
   clienteProfilePicture?: string | null;
+  status?: "enviando" | "enviada" | "lida";
 }
 
 const remetenteConfig = {
@@ -60,7 +61,8 @@ export function ChatMessage({
   readAt,
   showSenderName = true,
   clientePushName,
-  clienteProfilePicture
+  clienteProfilePicture,
+  status
 }: ChatMessageProps) {
   const [showImageDialog, setShowImageDialog] = useState(false);
   const config = remetenteConfig[remetenteTipo];
@@ -219,9 +221,11 @@ export function ChatMessage({
               <span className="text-[10px] sm:text-[11px] opacity-80">
                 {format(new Date(createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
               </span>
-              {(remetenteTipo === "cliente" || remetenteTipo === "ia") && (
+              {(remetenteTipo === "vendedor" || remetenteTipo === "supervisor" || remetenteTipo === "ia") && (
                 <span className="flex items-center gap-0.5">
-                  {readAt ? (
+                  {status === "enviando" ? (
+                    <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-60 animate-pulse" />
+                  ) : status === "lida" || readAt ? (
                     <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                   ) : (
                     <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-60" />
