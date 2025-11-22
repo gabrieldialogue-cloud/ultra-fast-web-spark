@@ -33,21 +33,24 @@ export function useRealtimeMessages({
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [isClientTyping, setIsClientTyping] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [oldestMessageDate, setOldestMessageDate] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Função para buscar mensagens do banco
+  // Função para buscar mensagens do banco (últimas 10)
   const fetchMessages = useCallback(async (atendId: string, silent = false) => {
     if (!silent) setLoading(true);
     
     try {
       console.log('📥 Buscando mensagens do atendimento:', atendId);
       
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('mensagens')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('atendimento_id', atendId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(10);
 
       if (error) {
         console.error('❌ Erro ao buscar mensagens:', error);
@@ -55,10 +58,11 @@ export function useRealtimeMessages({
       }
 
       if (data) {
-        console.log('✅ Mensagens carregadas:', data.length);
+        const sortedData = data.reverse(); // Inverter para ordem cronológica
+        console.log(`✅ ${sortedData.length} mensagens carregadas (de ${count || 0} total)`);
         
         // Adicionar status às mensagens
-        const messagesWithStatus = data.map(msg => {
+        const messagesWithStatus = sortedData.map(msg => {
           let msgStatus = undefined;
           
           if (msg.remetente_tipo === 'vendedor' || msg.remetente_tipo === 'supervisor' || msg.remetente_tipo === 'ia') {
@@ -75,10 +79,12 @@ export function useRealtimeMessages({
         });
         
         setMessages(messagesWithStatus);
+        setHasMoreMessages((count || 0) > 10);
+        setOldestMessageDate(sortedData.length > 0 ? sortedData[0].created_at : null);
         
         // Marcar como lidas as mensagens de clientes/IA não lidas
         if (vendedorId) {
-          const unreadMessages = data.filter(
+          const unreadMessages = sortedData.filter(
             msg => 
               (msg.remetente_tipo === 'cliente' || msg.remetente_tipo === 'ia') && 
               !msg.read_at
@@ -101,6 +107,56 @@ export function useRealtimeMessages({
       if (!silent) setLoading(false);
     }
   }, [vendedorId]);
+
+  // Carregar mensagens antigas
+  const loadMoreMessages = useCallback(async () => {
+    if (!atendimentoId || !oldestMessageDate || !hasMoreMessages || loading) return;
+
+    setLoading(true);
+    try {
+      const { data, error, count } = await supabase
+        .from('mensagens')
+        .select('*', { count: 'exact' })
+        .eq('atendimento_id', atendimentoId)
+        .lt('created_at', oldestMessageDate)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const sortedData = data.reverse();
+        
+        const messagesWithStatus = sortedData.map(msg => {
+          let msgStatus = undefined;
+          
+          if (msg.remetente_tipo === 'vendedor' || msg.remetente_tipo === 'supervisor' || msg.remetente_tipo === 'ia') {
+            if (msg.read_at) {
+              msgStatus = 'lida' as const;
+            } else if (msg.delivered_at) {
+              msgStatus = 'entregue' as const;
+            } else {
+              msgStatus = 'enviada' as const;
+            }
+          }
+          
+          return { ...msg, status: msgStatus };
+        });
+        
+        setMessages(prev => [...messagesWithStatus, ...prev]);
+        setOldestMessageDate(sortedData[0].created_at);
+        
+        const totalLoaded = messages.length + sortedData.length;
+        setHasMoreMessages((count || 0) > totalLoaded);
+        
+        console.log(`✅ ${sortedData.length} mensagens antigas carregadas`);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar mensagens antigas:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [atendimentoId, oldestMessageDate, hasMoreMessages, loading, messages.length]);
 
   // Setup realtime channel
   useEffect(() => {
@@ -218,6 +274,8 @@ export function useRealtimeMessages({
     notifyMessageChange,
     addOptimisticMessage,
     updateMessage,
-    removeOptimisticMessage
+    removeOptimisticMessage,
+    loadMoreMessages,
+    hasMoreMessages
   };
 }

@@ -75,7 +75,9 @@ export default function Atendimentos() {
     notifyMessageChange,
     addOptimisticMessage,
     updateMessage,
-    removeOptimisticMessage
+    removeOptimisticMessage,
+    loadMoreMessages,
+    hasMoreMessages
   } = useRealtimeMessages({
     atendimentoId: selectedAtendimentoIdVendedor,
     vendedorId,
@@ -1310,7 +1312,7 @@ export default function Atendimentos() {
                                   <p className="text-sm">Nenhum atendimento encontrado</p>
                                 </div>
                               ) : (
-                                <div className="space-y-1 p-4">
+                                <div className="space-y-3 p-4">
                                    {filteredAtendimentosVendedor.map((atendimento) => {
                                      // Get last message with attachment
                                      const lastMessageQuery = supabase
@@ -1489,6 +1491,28 @@ export default function Atendimentos() {
                                           </div>
                                           ) : (
                                             <div className="space-y-4">
+                                              {/* Botão para carregar mensagens antigas */}
+                                              {hasMoreMessages && (
+                                                <div className="flex justify-center pb-2">
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={loadMoreMessages}
+                                                    disabled={loadingMessages}
+                                                    className="text-xs"
+                                                  >
+                                                    {loadingMessages ? (
+                                                      <>
+                                                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                                        Carregando...
+                                                      </>
+                                                    ) : (
+                                                      'Carregar mensagens antigas'
+                                                    )}
+                                                  </Button>
+                                                </div>
+                                              )}
+                                              
                                               {searchMessages && filteredMensagensVendedor.length === 0 ? (
                                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
                                                  <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
@@ -1627,12 +1651,17 @@ export default function Atendimentos() {
                               </TabsContent>
                               
                               <TabsContent value="media" className="mt-0">
-                                {selectedAtendimentoIdVendedor && (
+                                {selectedAtendimentoIdVendedor ? (
                                   <MediaGallery 
                                     mensagens={mensagensVendedor}
-                                    onLoadMore={() => {}}
-                                    hasMoreMedia={false}
+                                    onLoadMore={loadMoreMessages}
+                                    hasMoreMedia={hasMoreMessages}
                                   />
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                    <Images className="h-12 w-12 mb-4 opacity-50" />
+                                    <p className="text-sm">Selecione um atendimento para ver as mídias</p>
+                                  </div>
                                 )}
                               </TabsContent>
                             </Tabs>
