@@ -64,7 +64,7 @@ export default function Atendimentos() {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [scrollActiveConversas, setScrollActiveConversas] = useState(false);
   const [scrollActiveChat, setScrollActiveChat] = useState(false);
-  const [messageLimit, setMessageLimit] = useState(10);
+  const [messageLimit, setMessageLimit] = useState(50);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -393,8 +393,8 @@ export default function Atendimentos() {
   // Fetch messages for selected atendimento (vendedor) with realtime updates
   useEffect(() => {
     if (selectedAtendimentoIdVendedor && !isSupervisor) {
-      setMessageLimit(10); // Reset limit
-      fetchMensagensVendedor(selectedAtendimentoIdVendedor, 10);
+      setMessageLimit(50); // Reset limit
+      fetchMensagensVendedor(selectedAtendimentoIdVendedor, 50);
       
       // Setup realtime subscription with optimized settings
       const messagesChannel = supabase
@@ -572,7 +572,7 @@ export default function Atendimentos() {
   };
 
   const loadMoreMessages = () => {
-    const newLimit = messageLimit + 10;
+    const newLimit = messageLimit + 50;
     setMessageLimit(newLimit);
     if (selectedAtendimentoIdVendedor) {
       fetchMensagensVendedor(selectedAtendimentoIdVendedor, newLimit);
@@ -1726,43 +1726,31 @@ export default function Atendimentos() {
                                                </div>
                                               ) : (
                                                 <>
-                                                   {(() => {
-                                                     console.log('📊 Total messages in state:', mensagensVendedor.length);
-                                                     console.log('📊 Filtered messages:', filteredMensagensVendedor.length);
-                                                     console.log('📊 Message types:', filteredMensagensVendedor.map(m => m.remetente_tipo));
-                                                     return filteredMensagensVendedor.map((mensagem, index) => {
-                                                       console.log(`🔍 Rendering message ${index}:`, {
-                                                         id: mensagem.id,
-                                                         tipo: mensagem.remetente_tipo,
-                                                         conteudo: mensagem.conteudo?.substring(0, 30),
-                                                         hasConteudo: Boolean(mensagem.conteudo)
-                                                       });
-                                                       
-                                                       const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
-                                                       const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
-                                                       const currentAtendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
-                                                       
-                                                       return (
-                                                         <ChatMessage
-                                                           key={mensagem.id}
-                                                           remetenteTipo={mensagem.remetente_tipo}
-                                                           conteudo={mensagem.conteudo}
-                                                           createdAt={mensagem.created_at}
-                                                           attachmentUrl={mensagem.attachment_url}
-                                                           attachmentType={mensagem.attachment_type}
-                                                           attachmentFilename={mensagem.attachment_filename}
-                                                           searchTerm={searchMessages}
-                                                           isHighlighted={highlightedMessageId === mensagem.id}
-                                                           readAt={mensagem.read_at}
-                                                           showSenderName={showSenderName}
-                                                           clientePushName={currentAtendimento?.clientes?.push_name}
-                                                           clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
-                                                           status={mensagem.status}
-                                                           deliveredAt={mensagem.delivered_at}
-                                                         />
-                                                       );
-                                                     });
-                                                   })()}
+                                                   {filteredMensagensVendedor.map((mensagem, index) => {
+                                                   const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
+                                                   const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
+                                                   const currentAtendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
+                                                   
+                                                   return (
+                                                     <ChatMessage
+                                                       key={mensagem.id}
+                                                       remetenteTipo={mensagem.remetente_tipo}
+                                                       conteudo={mensagem.conteudo}
+                                                       createdAt={mensagem.created_at}
+                                                       attachmentUrl={mensagem.attachment_url}
+                                                       attachmentType={mensagem.attachment_type}
+                                                       attachmentFilename={mensagem.attachment_filename}
+                                                       searchTerm={searchMessages}
+                                                       isHighlighted={highlightedMessageId === mensagem.id}
+                                                       readAt={mensagem.read_at}
+                                                       showSenderName={showSenderName}
+                                                       clientePushName={currentAtendimento?.clientes?.push_name}
+                                                       clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
+                                                       status={mensagem.status}
+                                                       deliveredAt={mensagem.delivered_at}
+                                                     />
+                                                   );
+                                                 })}
                                               </>
                                             )}
                                             {isClientTyping && (
