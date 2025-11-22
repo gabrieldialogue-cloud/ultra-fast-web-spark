@@ -515,9 +515,14 @@ export default function Atendimentos() {
               }
               
               if (payload.isTyping) {
+                // Após um pequeno tempo sem digitar, consideramos que a mensagem foi enviada
                 typingTimeoutRef.current = setTimeout(() => {
                   setIsClientTyping(false);
-                }, 3000);
+                  if (selectedAtendimentoIdVendedor) {
+                    console.log('⟳ Recarregando mensagens após typing do cliente...');
+                    fetchMensagensVendedor(selectedAtendimentoIdVendedor);
+                  }
+                }, 2000);
               }
             }
           }
