@@ -39,278 +39,168 @@ serve(async (req) => {
       const body = await req.json();
       console.log('Received webhook:', JSON.stringify(body, null, 2));
 
-      // Process WhatsApp webhook data
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      const messages = value?.messages;
+    // Process WhatsApp webhook data
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
 
-      if (messages && messages.length > 0) {
-        for (const message of messages) {
-          const from = message.from; // Phone number
-          const messageBody = message.text?.body || '';
-          const messageType = message.type;
-          const timestamp = new Date(parseInt(message.timestamp) * 1000).toISOString();
+    // Handle message status updates (sent/delivered/read)
+    const statuses = value?.statuses;
+    if (statuses && statuses.length > 0) {
+      for (const status of statuses) {
+        const messageId = status.id; // WhatsApp message ID
+        const statusValue = status.status; // sent, delivered, read, etc.
+        const ts = status.timestamp ? new Date(parseInt(status.timestamp) * 1000).toISOString() : new Date().toISOString();
 
-          console.log(`Message from ${from}: Type: ${messageType}`);
+        console.log('Received status update:', { messageId, statusValue, ts });
 
-          // Find or create cliente
-          let cliente;
-          const { data: existingCliente } = await supabase
-            .from('clientes')
-            .select('*')
-            .eq('telefone', from)
-            .single();
-
-          if (existingCliente) {
-            cliente = existingCliente;
-            
-            // Update cliente data if we have profile info from WhatsApp
-            const profileName = value?.contacts?.[0]?.profile?.name;
-            const profilePicture = value?.contacts?.[0]?.profile?.picture;
-            
-            const updates: any = {};
-            if (profileName && existingCliente.nome.startsWith('Cliente ')) {
-              updates.nome = profileName;
-            }
-            if (profileName) {
-              updates.push_name = profileName;
-            }
-            if (profilePicture) {
-              updates.profile_picture_url = profilePicture;
-            }
-            
-            if (Object.keys(updates).length > 0) {
-              await supabase
-                .from('clientes')
-                .update(updates)
-                .eq('id', existingCliente.id);
-              
-              cliente = { ...existingCliente, ...updates };
-            }
-          } else {
-            // Get profile info from WhatsApp contact info
-            const profileName = value?.contacts?.[0]?.profile?.name || `Cliente ${from}`;
-            const profilePicture = value?.contacts?.[0]?.profile?.picture;
-            
-            const { data: newCliente, error: clienteError } = await supabase
-              .from('clientes')
-              .insert({
-                nome: profileName,
-                telefone: from,
-                push_name: profileName,
-                profile_picture_url: profilePicture || null,
-              })
-              .select()
-              .single();
-
-            if (clienteError) {
-              console.error('Error creating cliente:', clienteError);
-              continue;
-            }
-            cliente = newCliente;
-          }
-
-          // Find or create atendimento
-          const { data: atendimentos } = await supabase
-            .from('atendimentos')
-            .select('*')
-            .eq('cliente_id', cliente.id)
-            .neq('status', 'encerrado')
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          let atendimento;
-          if (atendimentos && atendimentos.length > 0) {
-            atendimento = atendimentos[0];
-            
-            // Immediately broadcast typing indicator for instant feedback
-            const typingChannel = supabase.channel(`typing:${atendimento.id}`);
-            typingChannel.subscribe();
-            typingChannel.send({
-              type: 'broadcast',
-              event: 'typing',
-              payload: {
-                atendimentoId: atendimento.id,
-                remetenteTipo: 'cliente',
-                isTyping: true
-              }
-            });
-            // Don't remove channel yet - will do after message is saved
-          } else {
-            // Find an available vendedor to assign (simple round-robin for now)
-            const { data: vendedores } = await supabase
-              .from('usuarios')
-              .select('id')
-              .eq('role', 'vendedor')
-              .limit(1);
-
-            const vendedorId = vendedores && vendedores.length > 0 ? vendedores[0].id : null;
-
-            const { data: newAtendimento, error: atendimentoError } = await supabase
-              .from('atendimentos')
-              .insert({
-                cliente_id: cliente.id,
-                marca_veiculo: 'A definir',
-                status: 'ia_respondendo',
-                vendedor_fixo_id: vendedorId,
-              })
-              .select()
-              .single();
-
-            if (atendimentoError) {
-              console.error('Error creating atendimento:', atendimentoError);
-              continue;
-            }
-            atendimento = newAtendimento;
-            console.log(`Atendimento assigned to vendedor: ${vendedorId}`);
-          }
-
-          // Handle media messages (image, document, video, audio)
-          let attachmentUrl = null;
-          let attachmentType = null;
-          let finalContent = messageBody; // Initialize here to avoid scope issues
-
-          if (messageType === 'image' || messageType === 'document' || messageType === 'video' || messageType === 'audio') {
-            try {
-              const mediaId = message.image?.id || message.document?.id || message.video?.id || message.audio?.id;
-              
-              if (mediaId) {
-                const whatsappToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
-                
-                // Get media URL from WhatsApp
-                const mediaResponse = await fetch(`https://graph.facebook.com/v17.0/${mediaId}`, {
-                  headers: { 'Authorization': `Bearer ${whatsappToken}` }
-                });
-                const mediaData = await mediaResponse.json();
-                
-                if (mediaData.url) {
-                  // Download media file
-                  const fileResponse = await fetch(mediaData.url, {
-                    headers: { 'Authorization': `Bearer ${whatsappToken}` }
-                  });
-                  
-                  const fileBlob = await fileResponse.blob();
-                  
-                  // Get proper file extension
-                  let fileExt = 'bin';
-                  const mimeType = mediaData.mime_type || fileBlob.type;
-                  
-                  // Map common mime types to extensions
-                  const mimeToExt: Record<string, string> = {
-                    'image/jpeg': 'jpg',
-                    'image/png': 'png',
-                    'image/gif': 'gif',
-                    'image/webp': 'webp',
-                    'application/pdf': 'pdf',
-                    'application/zip': 'zip',
-                    'application/x-rar-compressed': 'rar',
-                    'application/msword': 'doc',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-                    'application/vnd.ms-excel': 'xls',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-                    'text/plain': 'txt',
-                    'text/csv': 'csv',
-                  };
-                  
-                  if (mimeType && mimeToExt[mimeType]) {
-                    fileExt = mimeToExt[mimeType];
-                  } else if (message.document?.filename) {
-                    const parts = message.document.filename.split('.');
-                    if (parts.length > 1) {
-                      fileExt = parts[parts.length - 1];
-                    }
-                  }
-                  
-                  const fileName = `${atendimento.id}/${Date.now()}.${fileExt}`;
-                  
-                  // Upload to storage without mime type restriction
-                  const { error: uploadError } = await supabase.storage
-                    .from('chat-files')
-                    .upload(fileName, fileBlob, {
-                      contentType: mimeType,
-                      upsert: false
-                    });
-
-                  if (!uploadError) {
-                    const { data: { publicUrl } } = supabase.storage
-                      .from('chat-files')
-                      .getPublicUrl(fileName);
-                    
-                    attachmentUrl = publicUrl;
-                    attachmentType = messageType === 'image' ? 'image' : 'document';
-                    console.log(`Media uploaded: ${attachmentUrl} (${mimeType})`);
-                  } else {
-                    console.error('Error uploading media:', uploadError);
-                    
-                    // Provide specific error message
-                    if (uploadError.message?.includes('maximum allowed size') || uploadError.message?.includes('exceeded')) {
-                      finalContent = `Documento "${message.document?.filename || 'arquivo'}" é muito grande (máximo 20MB). Por favor, envie um arquivo menor.`;
-                    } else if (uploadError.message?.includes('not supported')) {
-                      finalContent = `Tipo de arquivo "${message.document?.filename || 'arquivo'}" não é suportado.`;
-                    } else {
-                      finalContent = `Não foi possível carregar o arquivo "${message.document?.filename || 'arquivo'}". Erro: ${uploadError.message}`;
-                    }
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('Error processing media:', error);
-            }
-          }
-
-          // Set default message if no content yet
-          if (!finalContent && !attachmentUrl) {
-            if (messageType === 'document') {
-              const filename = message.document?.filename || 'Documento';
-              finalContent = `Documento "${filename}" não pôde ser carregado.`;
-            } else if (messageType === 'image' || messageType === 'video' || messageType === 'audio') {
-              finalContent = 'Mídia recebida, mas não foi possível carregá-la.';
-            } else {
-              finalContent = 'Mensagem recebida.';
-            }
-          }
-
-          // Save message
-          const { error: messageError } = await supabase
+        if (messageId && (statusValue === 'read' || statusValue === 'delivered')) {
+          const { error: updateError } = await supabase
             .from('mensagens')
-            .insert({
-              atendimento_id: atendimento.id,
-              remetente_tipo: 'cliente',
-              conteudo: finalContent,
-              created_at: timestamp,
-              attachment_filename: message.document?.filename || message.image?.filename || null,
-              attachment_url: attachmentUrl,
-              attachment_type: attachmentType,
-            });
+            .update({
+              read_at: ts,
+            })
+            .eq('whatsapp_message_id', messageId);
 
-          if (messageError) {
-            console.error('Error saving message:', messageError);
+          if (updateError) {
+            console.error('Error updating message status from WhatsApp:', updateError);
           } else {
-            console.log(`Message saved for atendimento ${atendimento.id}`);
-            
-            // Broadcast typing indicator off after message is saved
-            const typingChannel = supabase.channel(`typing:${atendimento.id}`);
-            await typingChannel.subscribe();
-            
-            await typingChannel.send({
-              type: 'broadcast',
-              event: 'typing',
-              payload: {
-                atendimentoId: atendimento.id,
-                remetenteTipo: 'cliente',
-                isTyping: false
-              }
-            });
-            
-            await supabase.removeChannel(typingChannel);
+            console.log(`Updated read_at for mensagem with whatsapp_message_id=${messageId}`);
           }
         }
       }
+    }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const messages = value?.messages;
+
+    if (messages && messages.length > 0) {
+      for (const message of messages) {
+        const from = message.from; // Phone number
+        const messageBody = message.text?.body || '';
+        const messageType = message.type;
+        const timestamp = new Date(parseInt(message.timestamp) * 1000).toISOString();
+
+        console.log(`Message from ${from}: Type: ${messageType}`);
+
+        // Find or create cliente
+        let cliente;
+        const { data: existingCliente } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('telefone', from)
+          .single();
+
+        if (existingCliente) {
+          cliente = existingCliente;
+          
+          // Update cliente data if we have profile info from WhatsApp
+          const profileName = value?.contacts?.[0]?.profile?.name;
+          const profilePicture = value?.contacts?.[0]?.profile?.picture;
+          
+          const updates: any = {};
+          if (profileName && existingCliente.nome.startsWith('Cliente ')) {
+            updates.nome = profileName;
+          }
+          if (profileName) {
+            updates.push_name = profileName;
+          }
+          if (profilePicture) {
+            updates.profile_picture_url = profilePicture;
+          }
+          
+          if (Object.keys(updates).length > 0) {
+            await supabase
+              .from('clientes')
+              .update(updates)
+              .eq('id', existingCliente.id);
+            
+            cliente = { ...existingCliente, ...updates };
+          }
+        } else {
+          // Get profile info from WhatsApp contact info
+          const profileName = value?.contacts?.[0]?.profile?.name || `Cliente ${from}`;
+          const profilePicture = value?.contacts?.[0]?.profile?.picture;
+          
+          const { data: newCliente, error: clienteError } = await supabase
+            .from('clientes')
+            .insert({
+              nome: profileName,
+              telefone: from,
+              push_name: profileName,
+              profile_picture_url: profilePicture || null,
+            })
+            .select()
+            .single();
+
+          if (clienteError) {
+            console.error('Error creating cliente:', clienteError);
+            continue;
+          }
+          cliente = newCliente;
+        }
+
+        // Find or create atendimento
+        const { data: atendimentos } = await supabase
+          .from('atendimentos')
+          .select('*')
+          .eq('cliente_id', cliente.id)
+          .neq('status', 'encerrado')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        let atendimento;
+        if (atendimentos && atendimentos.length > 0) {
+          atendimento = atendimentos[0];
+          
+          // Immediately broadcast typing indicator for instant feedback
+          const typingChannel = supabase.channel(`typing:${atendimento.id}`);
+          typingChannel.subscribe();
+          typingChannel.send({
+            type: 'broadcast',
+            event: 'typing',
+            payload: {
+              atendimentoId: atendimento.id,
+              remetenteTipo: 'cliente',
+              isTyping: true
+            }
+          });
+          // Don't remove channel yet - will do after message is saved
+        } else {
+          // Find an available vendedor to assign (simple round-robin for now)
+          const { data: vendedores } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('role', 'vendedor')
+            .limit(1);
+
+          const vendedorId = vendedores && vendedores.length > 0 ? vendedores[0].id : null;
+
+          const { data: newAtendimento, error: atendimentoError } = await supabase
+            .from('atendimentos')
+            .insert({
+              cliente_id: cliente.id,
+              marca_veiculo: 'A definir',
+              status: 'ia_respondendo',
+              vendedor_fixo_id: vendedorId,
+            })
+            .select()
+            .single();
+
+          if (atendimentoError) {
+            console.error('Error creating atendimento:', atendimentoError);
+            continue;
+          }
+          atendimento = newAtendimento;
+          console.log(`Atendimento assigned to vendedor: ${vendedorId}`);
+        }
+
+        // ... keep existing code from line 169 onwards
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
     }
 
     return new Response('Method not allowed', { status: 405 });

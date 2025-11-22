@@ -692,7 +692,7 @@ export default function Atendimentos() {
         prev.map(msg => msg.id === optimisticMessage.id ? { ...dbResult.data, status: "enviada" as const } : msg)
       );
 
-      // Send WhatsApp in background (non-blocking)
+      // Send WhatsApp in background (non-blocking) and store WhatsApp message id
       if (clienteTelefone && sessionResult.data.session) {
         fetch(`https://ptwrrcqttnvcvlnxsvut.supabase.co/functions/v1/whatsapp-send`, {
           method: 'POST',
@@ -704,9 +704,25 @@ export default function Atendimentos() {
             to: clienteTelefone,
             message: formattedMessage
           })
-        }).catch(err => {
-          console.error('WhatsApp send error:', err);
-        });
+        })
+          .then(async (res) => {
+            try {
+              const data = await res.json();
+              const messageId = data?.messageId;
+              if (messageId) {
+                await supabase
+                  .from('mensagens')
+                  .update({ whatsapp_message_id: messageId })
+                  .eq('id', dbResult.data.id);
+                console.log('Stored WhatsApp message id for mensagem', dbResult.data.id, messageId);
+              }
+            } catch (err) {
+              console.error('Error parsing WhatsApp send response:', err);
+            }
+          })
+          .catch(err => {
+            console.error('WhatsApp send error:', err);
+          });
       }
       
       // Immediate scroll without timeout

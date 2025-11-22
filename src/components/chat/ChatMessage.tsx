@@ -37,7 +37,7 @@ const remetenteConfig = {
   },
   vendedor: {
     icon: Headphones,
-    bubbleTone: "bg-success text-success-foreground border-success/40 shadow-success/30",
+    bubbleTone: "bg-altese-orange text-accent-foreground border-altese-orange/40 shadow-altese-orange/30",
     label: "Você",
     align: "right" as const,
   },

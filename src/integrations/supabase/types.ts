@@ -212,6 +212,7 @@ export type Database = {
           read_by_id: string | null
           remetente_id: string | null
           remetente_tipo: string
+          whatsapp_message_id: string | null
         }
         Insert: {
           atendimento_id?: string | null
@@ -225,6 +226,7 @@ export type Database = {
           read_by_id?: string | null
           remetente_id?: string | null
           remetente_tipo: string
+          whatsapp_message_id?: string | null
         }
         Update: {
           atendimento_id?: string | null
@@ -238,6 +240,7 @@ export type Database = {
           read_by_id?: string | null
           remetente_id?: string | null
           remetente_tipo?: string
+          whatsapp_message_id?: string | null
         }
         Relationships: [
           {
