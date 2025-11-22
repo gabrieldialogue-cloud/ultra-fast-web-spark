@@ -4,6 +4,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Send, X } from "lucide-react";
 import { ChatMessage } from "./ChatMessage";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 interface Message {
   id: string;
@@ -18,6 +20,7 @@ interface ChatInterfaceProps {
   mensagens: Message[];
   onClose: () => void;
   onSendMessage: (message: string) => Promise<void>;
+  vendedorId?: string;
 }
 
 export function ChatInterface({
@@ -25,10 +28,15 @@ export function ChatInterface({
   mensagens,
   onClose,
   onSendMessage,
+  vendedorId,
 }: ChatInterfaceProps) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Track typing indicator
+  const isTyping = message.length > 0 && !isSending;
+  useTypingIndicator(vendedorId || null, isTyping);
 
   useEffect(() => {
     if (scrollRef.current) {
