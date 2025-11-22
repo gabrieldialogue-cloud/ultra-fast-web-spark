@@ -13,6 +13,10 @@ type Atendimento = {
   status: string;
   marca_veiculo: string;
   modelo_veiculo?: string;
+  ano_veiculo?: string;
+  placa?: string;
+  chassi?: string;
+  resumo_necessidade?: string;
   clientes: {
     nome: string;
     telefone: string;
@@ -39,6 +43,7 @@ export default function Orcamentos() {
   const [vendedores, setVendedores] = useState<VendedorListas[]>([]);
   const [loading, setLoading] = useState(true);
   const [openVendedores, setOpenVendedores] = useState<Set<string>>(new Set());
+  const [openListas, setOpenListas] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -133,50 +138,122 @@ export default function Orcamentos() {
     });
   };
 
+  const toggleLista = (listaId: string) => {
+    setOpenListas(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(listaId)) {
+        newSet.delete(listaId);
+      } else {
+        newSet.add(listaId);
+      }
+      return newSet;
+    });
+  };
+
   const ListaSection = ({ 
     title, 
     icon: Icon, 
     items, 
-    color 
+    color,
+    vendedorId,
+    listaKey
   }: { 
     title: string; 
     icon: any; 
     items: Atendimento[]; 
     color: string;
-  }) => (
-    <Card className={`border-${color} bg-gradient-to-br from-${color}/5 to-transparent`}>
-      <CardHeader>
-        <CardTitle className={`flex items-center justify-between text-${color}`}>
-          <div className="flex items-center gap-2">
-            <Icon className="h-5 w-5" />
-            {title}
-          </div>
-          <Badge variant="secondary" className={`bg-${color}/10 text-${color}`}>
-            {items.length}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      {items.length > 0 && (
-        <CardContent>
-          <ScrollArea className="h-[200px]">
-            <div className="space-y-2">
-              {items.map((item) => (
-                <div key={item.id} className="p-3 rounded-lg bg-background border border-border">
-                  <p className="font-medium text-foreground">{item.clientes?.nome}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {item.marca_veiculo} {item.modelo_veiculo}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {item.clientes?.telefone}
-                  </p>
+    vendedorId: string;
+    listaKey: string;
+  }) => {
+    const listaId = `${vendedorId}-${listaKey}`;
+    const isOpen = openListas.has(listaId);
+
+    return (
+      <Collapsible open={isOpen} onOpenChange={() => toggleLista(listaId)}>
+        <Card className={`border-${color} bg-gradient-to-br from-${color}/5 to-transparent`}>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardTitle className={`flex items-center justify-between text-${color}`}>
+                <div className="flex items-center gap-2">
+                  <Icon className="h-5 w-5" />
+                  {title}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      )}
-    </Card>
-  );
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className={`bg-${color}/10 text-${color}`}>
+                    {items.length}
+                  </Badge>
+                  <ChevronDown 
+                    className={`h-4 w-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
+                  />
+                </div>
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          
+          {items.length > 0 && (
+            <CollapsibleContent>
+              <CardContent>
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-3">
+                    {items.map((item) => (
+                      <Card key={item.id} className="p-4 bg-background border border-border hover:border-primary/50 transition-colors">
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-semibold text-foreground text-lg">{item.clientes?.nome}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.clientes?.telefone}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className={`text-${color} border-${color}`}>
+                              {item.status.replace(/_/g, ' ')}
+                            </Badge>
+                          </div>
+                          
+                          <div className="pt-2 border-t border-border/50">
+                            <p className="text-sm font-medium text-foreground">
+                              Veículo: {item.marca_veiculo} {item.modelo_veiculo}
+                            </p>
+                            {item.ano_veiculo && (
+                              <p className="text-xs text-muted-foreground">Ano: {item.ano_veiculo}</p>
+                            )}
+                            {item.placa && (
+                              <p className="text-xs text-muted-foreground">Placa: {item.placa}</p>
+                            )}
+                          </div>
+
+                          {item.resumo_necessidade && (
+                            <div className="pt-2 border-t border-border/50">
+                              <p className="text-xs font-medium text-muted-foreground uppercase">Resumo:</p>
+                              <p className="text-sm text-foreground">{item.resumo_necessidade}</p>
+                            </div>
+                          )}
+
+                          {item.mensagens && item.mensagens.length > 0 && (
+                            <div className="pt-2 border-t border-border/50">
+                              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
+                                Última Mensagem:
+                              </p>
+                              <p className="text-sm text-foreground line-clamp-2">
+                                {item.mensagens[0]?.conteudo}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {new Date(item.mensagens[0]?.created_at).toLocaleString('pt-BR')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </CollapsibleContent>
+          )}
+        </Card>
+      </Collapsible>
+    );
+  };
 
   return (
     <MainLayout>
@@ -244,6 +321,8 @@ export default function Orcamentos() {
                           icon={FileText}
                           items={vendedor.orcamentos}
                           color="accent"
+                          vendedorId={vendedor.id}
+                          listaKey="orcamentos"
                         />
                         
                         <ListaSection
@@ -251,6 +330,8 @@ export default function Orcamentos() {
                           icon={CheckCircle2}
                           items={vendedor.fechamento}
                           color="success"
+                          vendedorId={vendedor.id}
+                          listaKey="fechamento"
                         />
                       </div>
 
@@ -264,6 +345,8 @@ export default function Orcamentos() {
                             icon={RefreshCw}
                             items={vendedor.reembolsos}
                             color="destructive"
+                            vendedorId={vendedor.id}
+                            listaKey="reembolsos"
                           />
                           
                           <ListaSection
@@ -271,6 +354,8 @@ export default function Orcamentos() {
                             icon={Shield}
                             items={vendedor.garantias}
                             color="primary"
+                            vendedorId={vendedor.id}
+                            listaKey="garantias"
                           />
                           
                           <ListaSection
@@ -278,6 +363,8 @@ export default function Orcamentos() {
                             icon={Package}
                             items={vendedor.trocas}
                             color="secondary"
+                            vendedorId={vendedor.id}
+                            listaKey="trocas"
                           />
                           
                           <ListaSection
@@ -285,6 +372,8 @@ export default function Orcamentos() {
                             icon={CheckCircle2}
                             items={vendedor.resolvidos}
                             color="success"
+                            vendedorId={vendedor.id}
+                            listaKey="resolvidos"
                           />
                         </div>
                       </div>

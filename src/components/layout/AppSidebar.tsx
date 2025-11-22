@@ -21,7 +21,7 @@ import { AlteseLogoIcon, AlteseLogoText } from "./AlteseLogoIcon";
 
 const menuItems = [
   { title: "Atendimentos", url: "/", icon: MessageSquare },
-  { title: "Orçamentos", url: "/orcamentos", icon: FileText },
+  { title: "Listas", url: "/orcamentos", icon: FileText },
   { title: "Contatos", url: "/contatos", icon: Users },
 ];
 
