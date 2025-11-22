@@ -15,11 +15,13 @@ import { VendedorChatModal } from "@/components/supervisor/VendedorChatModal";
 import { HistoricoAtendimentos } from "@/components/supervisor/HistoricoAtendimentos";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
+import { MediaGallery } from "@/components/chat/MediaGallery";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, X, Image as ImageIcon, File } from "lucide-react";
+import { Send, Paperclip, X, Image as ImageIcon, File, Images } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { compressImage, shouldCompress } from "@/lib/imageCompression";
 
 type DetailType = 
   | "ia_respondendo" 
@@ -537,8 +539,8 @@ export default function Atendimentos() {
     }
   };
 
-  // Handle file selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle file selection with compression
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -548,17 +550,42 @@ export default function Atendimentos() {
       return;
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 
-                          'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                          'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    // Extended list of allowed file types
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed',
+      'text/plain', 'text/csv'
+    ];
     
     if (!allowedTypes.includes(file.type)) {
       toast.error("Tipo de arquivo não suportado.");
       return;
     }
 
-    setSelectedFile(file);
+    // Compress image if needed
+    if (shouldCompress(file)) {
+      try {
+        toast.info("Comprimindo imagem...");
+        const compressedBlob = await compressImage(file);
+        // Create a new File object from the blob
+        const compressedFile = Object.assign(compressedBlob, {
+          name: file.name.replace(/\.[^.]+$/, '.jpg'),
+          lastModified: Date.now(),
+        }) as File;
+        setSelectedFile(compressedFile);
+        toast.success("Imagem comprimida com sucesso!");
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast.error("Erro ao comprimir imagem. Usando original.");
+        setSelectedFile(file);
+      }
+    } else {
+      setSelectedFile(file);
+    }
   };
 
   // Upload file and send message
@@ -1005,118 +1032,138 @@ export default function Atendimentos() {
                         </div>
                       </CardHeader>
                       <CardContent className="p-0">
-                        <ScrollArea className="h-[400px] p-4" ref={scrollRef}>
-                          {!selectedAtendimentoIdVendedor ? (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                              <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-                              <p>Selecione um atendimento para ver as mensagens</p>
-                            </div>
-                          ) : mensagensVendedor.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                              <Bot className="h-12 w-12 mb-4 opacity-50" />
-                              <p>Nenhuma mensagem ainda</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              {mensagensVendedor.map((mensagem) => (
-                                <ChatMessage
-                                  key={mensagem.id}
-                                  remetenteTipo={mensagem.remetente_tipo}
-                                  conteudo={mensagem.conteudo}
-                                  createdAt={mensagem.created_at}
-                                  attachmentUrl={mensagem.attachment_url}
-                                  attachmentType={mensagem.attachment_type}
-                                />
-                              ))}
-                              {isClientTyping && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  <span>Cliente está digitando...</span>
+                        <Tabs defaultValue="chat" className="w-full">
+                          <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-4">
+                            <TabsTrigger value="chat" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                              Chat
+                            </TabsTrigger>
+                            <TabsTrigger value="media" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                              <Images className="h-4 w-4 mr-2" />
+                              Mídias
+                            </TabsTrigger>
+                          </TabsList>
+                          
+                          <TabsContent value="chat" className="mt-0">
+                            <ScrollArea className="h-[400px] p-4" ref={scrollRef}>
+                              {!selectedAtendimentoIdVendedor ? (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                  <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                                  <p>Selecione um atendimento para ver as mensagens</p>
+                                </div>
+                              ) : mensagensVendedor.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                  <Bot className="h-12 w-12 mb-4 opacity-50" />
+                                  <p>Nenhuma mensagem ainda</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  {mensagensVendedor.map((mensagem) => (
+                                    <ChatMessage
+                                      key={mensagem.id}
+                                      remetenteTipo={mensagem.remetente_tipo}
+                                      conteudo={mensagem.conteudo}
+                                      createdAt={mensagem.created_at}
+                                      attachmentUrl={mensagem.attachment_url}
+                                      attachmentType={mensagem.attachment_type}
+                                    />
+                                  ))}
+                                  {isClientTyping && (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      <span>Cliente está digitando...</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                            </div>
-                          )}
-                        </ScrollArea>
-                        
-                        {/* Input Area */}
-                        {selectedAtendimentoIdVendedor && (
-                          <div className="border-t p-4 bg-muted/30">
-                            {/* File Preview */}
-                            {selectedFile && (
-                              <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-lg flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  {selectedFile.type.startsWith('image/') ? (
-                                    <ImageIcon className="h-5 w-5 text-accent" />
-                                  ) : (
-                                    <File className="h-5 w-5 text-accent" />
-                                  )}
-                                  <span className="text-sm font-medium truncate max-w-[200px]">
-                                    {selectedFile.name}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    ({(selectedFile.size / 1024).toFixed(1)} KB)
-                                  </span>
+                            </ScrollArea>
+                            
+                            {/* Input Area */}
+                            {selectedAtendimentoIdVendedor && (
+                              <div className="border-t p-4 bg-muted/30">
+                                {/* File Preview */}
+                                {selectedFile && (
+                                  <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-lg flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      {selectedFile.type.startsWith('image/') ? (
+                                        <ImageIcon className="h-5 w-5 text-accent" />
+                                      ) : (
+                                        <File className="h-5 w-5 text-accent" />
+                                      )}
+                                      <span className="text-sm font-medium truncate max-w-[200px]">
+                                        {selectedFile.name}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        ({(selectedFile.size / 1024).toFixed(1)} KB)
+                                      </span>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => {
+                                        setSelectedFile(null);
+                                        if (fileInputRef.current) {
+                                          fileInputRef.current.value = "";
+                                        }
+                                      }}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                                
+                                <div className="flex gap-2">
+                                  <Input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-[60px] w-[60px] shrink-0"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading || isSending}
+                                  >
+                                    <Paperclip className="h-5 w-5" />
+                                  </Button>
+                                  <Textarea
+                                    value={messageInput}
+                                    onChange={handleInputChange}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
+                                    className="min-h-[60px] max-h-[120px] resize-none"
+                                    disabled={isSending || isUploading}
+                                  />
+                                  <Button
+                                    onClick={selectedFile ? handleSendWithFile : handleSendMessage}
+                                    disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
+                                    size="icon"
+                                    className="h-[60px] w-[60px] shrink-0"
+                                  >
+                                    {(isSending || isUploading) ? (
+                                      <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : (
+                                      <Send className="h-5 w-5" />
+                                    )}
+                                  </Button>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    setSelectedFile(null);
-                                    if (fileInputRef.current) {
-                                      fileInputRef.current.value = "";
-                                    }
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  {messageInput.length}/1000 caracteres
+                                  {selectedFile && " • Arquivo selecionado"}
+                                </p>
                               </div>
                             )}
-                            
-                            <div className="flex gap-2">
-                              <Input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx"
-                                onChange={handleFileSelect}
-                                className="hidden"
-                              />
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-[60px] w-[60px] shrink-0"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isUploading || isSending}
-                              >
-                                <Paperclip className="h-5 w-5" />
-                              </Button>
-                              <Textarea
-                                value={messageInput}
-                                onChange={handleInputChange}
-                                onKeyPress={handleKeyPress}
-                                placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
-                                className="min-h-[60px] max-h-[120px] resize-none"
-                                disabled={isSending || isUploading}
-                              />
-                              <Button
-                                onClick={selectedFile ? handleSendWithFile : handleSendMessage}
-                                disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
-                                size="icon"
-                                className="h-[60px] w-[60px] shrink-0"
-                              >
-                                {(isSending || isUploading) ? (
-                                  <Loader2 className="h-5 w-5 animate-spin" />
-                                ) : (
-                                  <Send className="h-5 w-5" />
-                                )}
-                              </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-2">
-                              {messageInput.length}/1000 caracteres
-                              {selectedFile && " • Arquivo selecionado"}
-                            </p>
-                          </div>
-                        )}
+                          </TabsContent>
+                          
+                          <TabsContent value="media" className="mt-0">
+                            {selectedAtendimentoIdVendedor && (
+                              <MediaGallery mensagens={mensagensVendedor} />
+                            )}
+                          </TabsContent>
+                        </Tabs>
                       </CardContent>
                     </Card>
                   </div>

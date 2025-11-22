@@ -146,14 +146,44 @@ serve(async (req) => {
                   });
                   
                   const fileBlob = await fileResponse.blob();
-                  const fileExt = mediaData.mime_type?.split('/')[1] || 'jpg';
+                  
+                  // Get proper file extension
+                  let fileExt = 'bin';
+                  const mimeType = mediaData.mime_type || fileBlob.type;
+                  
+                  // Map common mime types to extensions
+                  const mimeToExt: Record<string, string> = {
+                    'image/jpeg': 'jpg',
+                    'image/png': 'png',
+                    'image/gif': 'gif',
+                    'image/webp': 'webp',
+                    'application/pdf': 'pdf',
+                    'application/zip': 'zip',
+                    'application/x-rar-compressed': 'rar',
+                    'application/msword': 'doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                    'application/vnd.ms-excel': 'xls',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+                    'text/plain': 'txt',
+                    'text/csv': 'csv',
+                  };
+                  
+                  if (mimeType && mimeToExt[mimeType]) {
+                    fileExt = mimeToExt[mimeType];
+                  } else if (message.document?.filename) {
+                    const parts = message.document.filename.split('.');
+                    if (parts.length > 1) {
+                      fileExt = parts[parts.length - 1];
+                    }
+                  }
+                  
                   const fileName = `${atendimento.id}/${Date.now()}.${fileExt}`;
                   
-                  // Upload to storage
+                  // Upload to storage without mime type restriction
                   const { error: uploadError } = await supabase.storage
                     .from('chat-files')
                     .upload(fileName, fileBlob, {
-                      contentType: mediaData.mime_type,
+                      contentType: mimeType,
                       upsert: false
                     });
 
@@ -164,7 +194,7 @@ serve(async (req) => {
                     
                     attachmentUrl = publicUrl;
                     attachmentType = messageType === 'image' ? 'image' : 'document';
-                    console.log(`Media uploaded: ${attachmentUrl}`);
+                    console.log(`Media uploaded: ${attachmentUrl} (${mimeType})`);
                   } else {
                     console.error('Error uploading media:', uploadError);
                   }
