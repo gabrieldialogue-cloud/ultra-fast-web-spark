@@ -49,6 +49,7 @@ export default function Atendimentos() {
   
   // Estados para chat em tempo real (vendedor)
   const [vendedorId, setVendedorId] = useState<string | null>(null);
+  const [vendedorNome, setVendedorNome] = useState<string>("");
   const [atendimentosVendedor, setAtendimentosVendedor] = useState<any[]>([]);
   const [selectedAtendimentoIdVendedor, setSelectedAtendimentoIdVendedor] = useState<string | null>(null);
   const [mensagensVendedor, setMensagensVendedor] = useState<any[]>([]);
@@ -347,12 +348,13 @@ export default function Atendimentos() {
 
     const { data: usuarioData } = await supabase
       .from('usuarios')
-      .select('id')
+      .select('id, nome')
       .eq('user_id', user.id)
       .single();
 
     if (usuarioData) {
       setVendedorId(usuarioData.id);
+      setVendedorNome(usuarioData.nome);
     }
   };
 
@@ -617,18 +619,55 @@ export default function Atendimentos() {
     setIsTypingVendedor(false);
 
     try {
+      // Get atendimento and cliente info
+      const atendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
+      const clienteTelefone = atendimento?.clientes?.telefone;
+
+      // Format message with sender name
+      const remetenteName = isSupervisor ? "Supervisor" : vendedorNome;
+      const formattedMessage = `*${remetenteName}:*\n${trimmedMessage}`;
+
+      // Send via WhatsApp
+      if (clienteTelefone) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          const response = await fetch(`https://ptwrrcqttnvcvlnxsvut.supabase.co/functions/v1/whatsapp-send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token}`
+            },
+            body: JSON.stringify({
+              to: clienteTelefone,
+              message: formattedMessage
+            })
+          });
+
+          if (!response.ok) {
+            console.error('Failed to send WhatsApp message');
+            toast.error("Erro ao enviar mensagem via WhatsApp");
+          }
+        } catch (whatsappError) {
+          console.error('WhatsApp send error:', whatsappError);
+          toast.error("Erro ao enviar mensagem via WhatsApp");
+        }
+      }
+
+      // Save to database
       const { error } = await supabase
         .from('mensagens')
         .insert({
           atendimento_id: selectedAtendimentoIdVendedor,
           remetente_id: vendedorId,
-          remetente_tipo: 'vendedor',
+          remetente_tipo: isSupervisor ? 'supervisor' : 'vendedor',
           conteudo: trimmedMessage
         });
 
       if (error) throw error;
 
       setMessageInput("");
+      toast.success("Mensagem enviada com sucesso!");
       
       // Scroll to bottom after sending
       setTimeout(() => {
