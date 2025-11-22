@@ -18,23 +18,23 @@ interface AtendimentoCardProps {
 const statusConfig = {
   ia_respondendo: {
     label: "IA Respondendo",
-    className: "bg-secondary text-secondary-foreground", // Azul claro
+    className: "bg-gradient-to-r from-secondary to-primary text-white border-0", // Gradiente azul
   },
   aguardando_cliente: {
     label: "Aguardando Cliente",
-    className: "bg-altese-gray-medium text-altese-gray-dark", // Cinza médio
+    className: "bg-gradient-to-r from-muted to-muted-foreground/20 text-foreground border-0", // Gradiente cinza
   },
   vendedor_intervindo: {
     label: "Vendedor Intervindo",
-    className: "bg-success text-success-foreground", // Verde
+    className: "bg-gradient-to-r from-success to-success/80 text-white border-0", // Gradiente verde
   },
   aguardando_orcamento: {
     label: "Aguardando Orçamento",
-    className: "bg-accent text-accent-foreground", // Laranja
+    className: "bg-gradient-to-r from-accent to-accent/80 text-white border-0", // Gradiente laranja
   },
   aguardando_fechamento: {
     label: "Aguardando Fechamento",
-    className: "bg-primary text-primary-foreground", // Azul Altese
+    className: "bg-gradient-to-r from-primary to-primary/80 text-white border-0", // Gradiente azul Altese
   },
 };
 
@@ -49,7 +49,7 @@ export function AtendimentoCard({
   const statusInfo = statusConfig[status];
 
   return (
-    <Card className="cursor-pointer transition-all hover:shadow-md" onClick={onClick}>
+    <Card className="cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] bg-gradient-to-br from-card to-muted/30" onClick={onClick}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-3">

@@ -10,6 +10,7 @@ interface MediaItem {
   type: 'image' | 'document';
   createdAt: string;
   remetenteTipo: string;
+  filename?: string | null;
 }
 
 interface MediaGalleryProps {
@@ -17,6 +18,7 @@ interface MediaGalleryProps {
     id: string;
     attachment_url: string | null;
     attachment_type: string | null;
+    attachment_filename: string | null;
     created_at: string;
     remetente_tipo: string;
   }>;
@@ -34,6 +36,7 @@ export function MediaGallery({ mensagens }: MediaGalleryProps) {
       type: msg.attachment_type as 'image' | 'document',
       createdAt: msg.created_at,
       remetenteTipo: msg.remetente_tipo,
+      filename: msg.attachment_filename,
     }));
 
   const images = mediaItems.filter((item) => item.type === 'image');
@@ -87,7 +90,8 @@ export function MediaGallery({ mensagens }: MediaGalleryProps) {
               </h3>
               <div className="space-y-2">
                 {documents.map((item) => {
-                  const fileName = item.url.split('/').pop() || 'Documento';
+                  const fileName = item.filename || item.url.split('/').pop() || 'Documento';
+                  const decodedName = decodeURIComponent(fileName);
                   return (
                     <a
                       key={item.id}
@@ -98,7 +102,7 @@ export function MediaGallery({ mensagens }: MediaGalleryProps) {
                     >
                       <File className="h-5 w-5 text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{fileName}</p>
+                        <p className="text-sm font-medium truncate">{decodedName}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.remetenteTipo === 'vendedor' ? 'Você' : 'Cliente'}
                         </p>

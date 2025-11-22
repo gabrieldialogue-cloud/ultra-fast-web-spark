@@ -60,6 +60,8 @@ export default function Atendimentos() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchMessages, setSearchMessages] = useState("");
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [scrollActiveConversas, setScrollActiveConversas] = useState(false);
+  const [scrollActiveChat, setScrollActiveChat] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1082,7 +1084,9 @@ export default function Atendimentos() {
                         <CardDescription className="mt-2 text-base">
                           {expandedDetails.has("ia_respondendo") 
                             ? "Acompanhe em tempo real suas conversas com clientes" 
-                            : `${filteredAtendimentosVendedor.length} conversas ativas sendo gerenciadas pela IA`
+                            : filteredAtendimentosVendedor.length > 0
+                              ? `IA gerenciando ${filteredAtendimentosVendedor.length} conversa${filteredAtendimentosVendedor.length > 1 ? 's' : ''} - Clientes: ${filteredAtendimentosVendedor.slice(0, 3).map(a => a.clientes?.nome || 'Cliente').join(', ')}${filteredAtendimentosVendedor.length > 3 ? ` e mais ${filteredAtendimentosVendedor.length - 3}` : ''}`
+                              : "Nenhuma conversa ativa no momento"
                           }
                         </CardDescription>
                       </div>
@@ -1134,7 +1138,12 @@ export default function Atendimentos() {
                             </div>
                           </CardHeader>
                           <CardContent className="p-0">
-                            <ScrollArea className="h-[500px]">
+                            <div 
+                              onClick={() => setScrollActiveConversas(true)}
+                              onMouseLeave={() => setScrollActiveConversas(false)}
+                              className={scrollActiveConversas ? '' : 'overflow-hidden'}
+                            >
+                              <ScrollArea className="h-[500px]">
                               {filteredAtendimentosVendedor.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full p-8 text-muted-foreground">
                                   <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
@@ -1172,6 +1181,7 @@ export default function Atendimentos() {
                                 </div>
                               )}
                             </ScrollArea>
+                            </div>
                           </CardContent>
                         </Card>
 
@@ -1228,7 +1238,12 @@ export default function Atendimentos() {
                               </TabsList>
                               
                               <TabsContent value="chat" className="mt-0">
-                                <ScrollArea className="h-[600px] p-4" ref={scrollRef}>
+                                <div 
+                                  onClick={() => setScrollActiveChat(true)}
+                                  onMouseLeave={() => setScrollActiveChat(false)}
+                                  className={scrollActiveChat ? '' : 'overflow-hidden'}
+                                >
+                                  <ScrollArea className="h-[600px] p-4" ref={scrollRef}>
                                   {!selectedAtendimentoIdVendedor ? (
                                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                       <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
@@ -1274,6 +1289,7 @@ export default function Atendimentos() {
                                     </div>
                                   )}
                                 </ScrollArea>
+                                </div>
                                 
                                 {/* Input Area */}
                                 {selectedAtendimentoIdVendedor && (
@@ -1348,10 +1364,6 @@ export default function Atendimentos() {
                                         )}
                                       </Button>
                                     </div>
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                      {messageInput.length}/1000 caracteres
-                                      {selectedFile && " • Arquivo selecionado"}
-                                    </p>
                                   </div>
                                 )}
                               </TabsContent>
