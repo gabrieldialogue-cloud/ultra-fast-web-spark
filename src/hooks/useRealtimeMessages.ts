@@ -121,12 +121,12 @@ export function useRealtimeMessages({
       }
     });
 
-    // Escutar notificações de mudanças em mensagens
+    // Escutar notificações de mudanças em mensagens e eventos de digitação
     channel
       .on('broadcast', { event: 'message_change' }, (payload) => {
-        console.log('📨 Notificação de mudança em mensagem:', payload);
+        console.log('📨 Notificação de mudança em mensagem (broadcast):', payload);
         if (payload.payload?.atendimento_id === atendimentoId) {
-          console.log('⟳ Recarregando mensagens...');
+          console.log('⟳ Recarregando mensagens (broadcast)...');
           fetchMessages(atendimentoId, true);
         }
       })
@@ -146,6 +146,16 @@ export function useRealtimeMessages({
             }, 3000);
           }
         }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mensagens',
+        filter: `atendimento_id=eq.${atendimentoId}`
+      }, (payload) => {
+        console.log('🆕 Mudança em mensagens via postgres_changes:', payload);
+        console.log('⟳ Recarregando mensagens (postgres_changes)...');
+        fetchMessages(atendimentoId, true);
       })
       .subscribe((status) => {
         console.log('📡 Status do canal:', status);
