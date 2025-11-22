@@ -854,7 +854,7 @@ export default function Atendimentos() {
                       return (
                         <Collapsible key={vendedor.id} open={isExpanded}>
                           <Card className="overflow-hidden">
-                            <CollapsibleTrigger className="w-full" onClick={() => {
+                            <CollapsibleTrigger className="w-full transition-all duration-300 ease-in-out" onClick={() => {
                               const newId = isExpanded ? null : vendedor.id;
                               setSelectedVendedorId(newId);
                               if (newId) {
@@ -902,7 +902,7 @@ export default function Atendimentos() {
                                 </div>
                               </div>
                             </CardContent>
-                            <CollapsibleContent>
+                            <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out">
                               <div className="px-6 pb-6">
                                 <VendedorChatModal
                                   vendedorId={vendedor.id}
@@ -1004,7 +1004,7 @@ export default function Atendimentos() {
                       <CardDescription>Solicitações de orçamento pendentes</CardDescription>
                     </CardHeader>
                   </CollapsibleTrigger>
-                  <CollapsibleContent>
+                  <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out">
                     <CardContent className="pt-0">
                       {aguardandoOrcamento.length === 0 ? (
                         <div className="rounded-lg border border-accent/20 bg-accent/5 p-6 text-center">
@@ -1059,7 +1059,7 @@ export default function Atendimentos() {
                       <CardDescription>Negociações aguardando confirmação final</CardDescription>
                     </CardHeader>
                   </CollapsibleTrigger>
-                  <CollapsibleContent>
+                  <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out">
                     <CardContent className="pt-0">
                       {aguardandoFechamento.length === 0 ? (
                         <div className="rounded-lg border border-success/20 bg-success/5 p-6 text-center">
