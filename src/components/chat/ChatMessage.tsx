@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive } from "lucide-react";
+import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck } from "lucide-react";
 
 interface ChatMessageProps {
   remetenteTipo: "ia" | "cliente" | "vendedor" | "supervisor";
@@ -10,6 +10,9 @@ interface ChatMessageProps {
   attachmentUrl?: string | null;
   attachmentType?: string | null;
   attachmentFilename?: string | null;
+  searchTerm?: string;
+  isHighlighted?: boolean;
+  readAt?: string | null;
 }
 
 const remetenteConfig = {
@@ -43,12 +46,40 @@ const remetenteConfig = {
   },
 };
 
-export function ChatMessage({ remetenteTipo, conteudo, createdAt, attachmentUrl, attachmentType, attachmentFilename }: ChatMessageProps) {
+export function ChatMessage({ 
+  remetenteTipo, 
+  conteudo, 
+  createdAt, 
+  attachmentUrl, 
+  attachmentType, 
+  attachmentFilename,
+  searchTerm = "",
+  isHighlighted = false,
+  readAt
+}: ChatMessageProps) {
   const config = remetenteConfig[remetenteTipo];
   const Icon = config.icon;
 
   const isImage = attachmentType === 'image';
   const isDocument = attachmentType === 'document';
+
+  // Highlight text function
+  const highlightText = (text: string, search: string) => {
+    if (!search.trim()) return text;
+    
+    const regex = new RegExp(`(${search})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-300 dark:bg-yellow-600 px-1 rounded">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
 
   // Extract file name and extension from filename or URL
   const getFileInfo = (url: string, filename?: string | null) => {
@@ -77,7 +108,11 @@ export function ChatMessage({ remetenteTipo, conteudo, createdAt, attachmentUrl,
   const DocumentIcon = attachmentUrl && isDocument ? getDocumentIcon(attachmentFilename || attachmentUrl) : File;
 
   return (
-    <div className={cn("flex gap-3 mb-4", config.align === "right" && "flex-row-reverse")}>
+    <div className={cn(
+      "flex gap-3 mb-4",
+      config.align === "right" && "flex-row-reverse",
+      isHighlighted && "bg-yellow-100 dark:bg-yellow-900/20 p-2 rounded-lg -mx-2"
+    )}>
       <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", config.bgClass)}>
         <Icon className="h-4 w-4 text-white" />
       </div>
@@ -88,6 +123,22 @@ export function ChatMessage({ remetenteTipo, conteudo, createdAt, attachmentUrl,
           <span className="text-xs text-muted-foreground">
             {format(new Date(createdAt), "HH:mm", { locale: ptBR })}
           </span>
+          {/* Read indicator for client/ia messages */}
+          {(remetenteTipo === 'cliente' || remetenteTipo === 'ia') && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              {readAt ? (
+                <>
+                  <CheckCheck className="h-3 w-3 text-blue-500" />
+                  <span className="text-blue-500">Lida</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3" />
+                  <span>Enviada</span>
+                </>
+              )}
+            </span>
+          )}
         </div>
         
         {attachmentUrl && isImage && (
@@ -132,7 +183,9 @@ export function ChatMessage({ remetenteTipo, conteudo, createdAt, attachmentUrl,
         
         {conteudo && (
           <div className={cn("rounded-lg px-4 py-2.5", config.bgClass, config.textClass)}>
-            <p className="text-sm whitespace-pre-wrap break-words">{conteudo}</p>
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {highlightText(conteudo, searchTerm)}
+            </p>
           </div>
         )}
       </div>

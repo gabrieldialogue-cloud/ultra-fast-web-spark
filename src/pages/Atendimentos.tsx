@@ -58,6 +58,8 @@ export default function Atendimentos() {
   const [isTypingVendedor, setIsTypingVendedor] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [searchMessages, setSearchMessages] = useState("");
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -417,12 +419,37 @@ export default function Atendimentos() {
       // Reverse to show oldest first, newest last
       setMensagensVendedor([...data].reverse());
       
+      // Mark unread messages as read
+      await markMessagesAsRead(atendimentoId);
+      
       // Auto scroll to bottom
       setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
       }, 100);
+    }
+  };
+
+  // Mark messages as read
+  const markMessagesAsRead = async (atendimentoId: string) => {
+    if (!vendedorId) return;
+
+    const { data: unreadMessages } = await supabase
+      .from("mensagens")
+      .select("id")
+      .eq('atendimento_id', atendimentoId)
+      .in('remetente_tipo', ['cliente', 'ia'])
+      .is('read_at', null);
+
+    if (unreadMessages && unreadMessages.length > 0) {
+      await supabase
+        .from("mensagens")
+        .update({ 
+          read_at: new Date().toISOString(),
+          read_by_id: vendedorId
+        })
+        .in('id', unreadMessages.map(m => m.id));
     }
   };
 
@@ -663,6 +690,13 @@ export default function Atendimentos() {
            clienteTelefone.includes(searchLower) ||
            marcaVeiculo.includes(searchLower);
   });
+
+  // Filter messages based on search
+  const filteredMensagensVendedor = searchMessages.trim() 
+    ? mensagensVendedor.filter(msg => 
+        msg.conteudo.toLowerCase().includes(searchMessages.toLowerCase())
+      )
+    : mensagensVendedor;
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -1144,7 +1178,7 @@ export default function Atendimentos() {
                         {/* Chat Area */}
                         <Card className="lg:col-span-2">
                           <CardHeader className="border-b">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between mb-3">
                               <div>
                                 <CardTitle className="text-base">
                                   {atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.clientes?.nome || "Selecione um atendimento"}
@@ -1157,6 +1191,29 @@ export default function Atendimentos() {
                               </div>
                               {selectedAtendimentoIdVendedor && getStatusBadge(atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor)?.status || "")}
                             </div>
+                            {selectedAtendimentoIdVendedor && (
+                              <div className="flex gap-2">
+                                <Input
+                                  type="text"
+                                  placeholder="Buscar mensagens..."
+                                  value={searchMessages}
+                                  onChange={(e) => setSearchMessages(e.target.value)}
+                                  className="h-9 flex-1"
+                                />
+                                {searchMessages && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSearchMessages("");
+                                      setHighlightedMessageId(null);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </CardHeader>
                           <CardContent className="p-0">
                             <Tabs defaultValue="chat" className="w-full">
@@ -1182,19 +1239,32 @@ export default function Atendimentos() {
                                       <Bot className="h-12 w-12 mb-4 opacity-50" />
                                       <p>Nenhuma mensagem ainda</p>
                                     </div>
-                                  ) : (
+                                   ) : (
                                     <div className="space-y-4">
-                                      {mensagensVendedor.map((mensagem) => (
-                                        <ChatMessage
-                                          key={mensagem.id}
-                                          remetenteTipo={mensagem.remetente_tipo}
-                                          conteudo={mensagem.conteudo}
-                                          createdAt={mensagem.created_at}
-                                          attachmentUrl={mensagem.attachment_url}
-                                          attachmentType={mensagem.attachment_type}
-                                          attachmentFilename={mensagem.attachment_filename}
-                                        />
-                                      ))}
+                                      {searchMessages && filteredMensagensVendedor.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+                                          <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                                          <p>Nenhuma mensagem encontrada</p>
+                                          <p className="text-xs mt-1">Tente buscar com outros termos</p>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          {filteredMensagensVendedor.map((mensagem) => (
+                                            <ChatMessage
+                                              key={mensagem.id}
+                                              remetenteTipo={mensagem.remetente_tipo}
+                                              conteudo={mensagem.conteudo}
+                                              createdAt={mensagem.created_at}
+                                              attachmentUrl={mensagem.attachment_url}
+                                              attachmentType={mensagem.attachment_type}
+                                              attachmentFilename={mensagem.attachment_filename}
+                                              searchTerm={searchMessages}
+                                              isHighlighted={highlightedMessageId === mensagem.id}
+                                              readAt={mensagem.read_at}
+                                            />
+                                          ))}
+                                        </>
+                                      )}
                                       {isClientTyping && (
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
                                           <Loader2 className="h-4 w-4 animate-spin" />

@@ -202,6 +202,8 @@ export type Database = {
           conteudo: string
           created_at: string | null
           id: string
+          read_at: string | null
+          read_by_id: string | null
           remetente_id: string | null
           remetente_tipo: string
         }
@@ -213,6 +215,8 @@ export type Database = {
           conteudo: string
           created_at?: string | null
           id?: string
+          read_at?: string | null
+          read_by_id?: string | null
           remetente_id?: string | null
           remetente_tipo: string
         }
@@ -224,6 +228,8 @@ export type Database = {
           conteudo?: string
           created_at?: string | null
           id?: string
+          read_at?: string | null
+          read_by_id?: string | null
           remetente_id?: string | null
           remetente_tipo?: string
         }
@@ -233,6 +239,13 @@ export type Database = {
             columns: ["atendimento_id"]
             isOneToOne: false
             referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_read_by_id_fkey"
+            columns: ["read_by_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
             referencedColumns: ["id"]
           },
           {
