@@ -24,29 +24,25 @@ interface ChatMessageProps {
 const remetenteConfig = {
   ia: {
     icon: Bot,
-    bgClass: "bg-secondary", // Azul claro
-    textClass: "text-white",
+    bubbleTone: "bg-primary text-primary-foreground border-primary/40 shadow-primary/30",
     label: "IA",
     align: "left" as const,
   },
   cliente: {
     icon: User,
-    bgClass: "bg-altese-gray-light", // Cinza claro
-    textClass: "text-altese-gray-dark",
+    bubbleTone: "bg-card text-card-foreground border-border shadow-sm",
     label: "Cliente",
     align: "left" as const,
   },
   vendedor: {
     icon: Headphones,
-    bgClass: "bg-success", // Verde
-    textClass: "text-white",
+    bubbleTone: "bg-success text-success-foreground border-success/40 shadow-success/30",
     label: "Você",
     align: "right" as const,
   },
   supervisor: {
     icon: UserCircle,
-    bgClass: "bg-accent", // Laranja
-    textClass: "text-white",
+    bubbleTone: "bg-accent text-accent-foreground border-accent/40 shadow-accent/30",
     label: "Supervisor",
     align: "right" as const,
   },
@@ -144,9 +140,9 @@ export function ChatMessage({
           />
         ) : (
           <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full self-center", 
-            remetenteTipo === "cliente" ? "bg-accent/20" : config.bgClass
+            remetenteTipo === "cliente" ? "bg-accent/20" : "bg-primary text-primary-foreground"
           )}>
-            <Icon className={cn("h-5 w-5", remetenteTipo === "cliente" ? "text-accent" : "text-white")} />
+            <Icon className={cn("h-5 w-5", remetenteTipo === "cliente" ? "text-accent" : "text-primary-foreground")} />
           </div>
         )
       ) : (
@@ -181,9 +177,11 @@ export function ChatMessage({
         {attachmentUrl && isDocument && fileInfo && (
           <div
             className={cn(
-              "flex items-center gap-3 rounded-lg px-4 py-3 border border-border transition-colors mb-2 cursor-pointer hover:bg-accent/10",
-              config.bgClass,
-              config.textClass
+              "flex items-center gap-3 rounded-lg px-4 py-3 border transition-colors mb-2 cursor-pointer hover:bg-accent/10",
+              remetenteTipo === "cliente" && "bg-card text-card-foreground border-border",
+              remetenteTipo === "ia" && "bg-primary text-primary-foreground border-primary/40",
+              remetenteTipo === "vendedor" && "bg-success text-success-foreground border-success/40",
+              remetenteTipo === "supervisor" && "bg-accent text-accent-foreground border-accent/40"
             )}
             onClick={() => {
               // Create a temporary link to download the file
@@ -208,18 +206,23 @@ export function ChatMessage({
         )}
         
         {conteudo && (
-          <div className={cn("rounded-lg px-4 py-2.5 relative", config.bgClass, config.textClass)}>
+          <div
+            className={cn(
+              "rounded-2xl px-4 py-2.5 relative border shadow-sm",
+              config.bubbleTone
+            )}
+          >
             <p className="text-sm whitespace-pre-wrap break-words">
               {highlightText(conteudo, searchTerm)}
             </p>
             <div className="flex items-center justify-between gap-4 mt-1">
-              <span className="text-[11px] opacity-70">
+              <span className="text-[11px] opacity-80">
                 {format(new Date(createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
               </span>
               {(remetenteTipo === "cliente" || remetenteTipo === "ia") && (
                 <span className="flex items-center gap-0.5">
                   {readAt ? (
-                    <CheckCheck className="h-3 w-3 text-blue-400" />
+                    <CheckCheck className="h-3 w-3 text-primary" />
                   ) : (
                     <Check className="h-3 w-3 opacity-60" />
                   )}

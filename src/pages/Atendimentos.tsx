@@ -542,13 +542,26 @@ export default function Atendimentos() {
       .is('read_at', null);
 
     if (unreadMessages && unreadMessages.length > 0) {
-      await supabase
+      const ids = unreadMessages.map(m => m.id);
+
+      const { error } = await supabase
         .from("mensagens")
         .update({ 
           read_at: new Date().toISOString(),
           read_by_id: vendedorId
         })
-        .in('id', unreadMessages.map(m => m.id));
+        .in('id', ids);
+
+      if (!error) {
+        // Atualiza imediatamente no estado para refletir o tick em tempo real
+        setMensagensVendedor(prev =>
+          prev.map(msg =>
+            ids.includes(msg.id)
+              ? { ...msg, read_at: new Date().toISOString(), read_by_id: vendedorId }
+              : msg
+          )
+        );
+      }
     }
   };
 
