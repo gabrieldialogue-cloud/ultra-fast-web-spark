@@ -167,20 +167,6 @@ serve(async (req) => {
         let atendimento;
         if (atendimentos && atendimentos.length > 0) {
           atendimento = atendimentos[0];
-          
-          // Immediately broadcast typing indicator for instant feedback
-          const typingChannel = supabase.channel(`typing:${atendimento.id}`);
-          typingChannel.subscribe();
-          typingChannel.send({
-            type: 'broadcast',
-            event: 'typing',
-            payload: {
-              atendimentoId: atendimento.id,
-              remetenteTipo: 'cliente',
-              isTyping: true
-            }
-          });
-          // Don't remove channel yet - will do after message is saved
         } else {
           // Find an available vendedor to assign (simple round-robin for now)
           const { data: vendedores } = await supabase
@@ -210,7 +196,27 @@ serve(async (req) => {
           console.log(`Atendimento assigned to vendedor: ${vendedorId}`);
         }
 
-        // ... keep existing code from line 169 onwards
+        // Criar registro de mensagem do cliente
+        if (messageBody && atendimento?.id) {
+          const { data: novaMensagem, error: mensagemError } = await supabase
+            .from('mensagens')
+            .insert({
+              atendimento_id: atendimento.id,
+              conteudo: messageBody,
+              remetente_tipo: 'cliente',
+              remetente_id: null,
+              created_at: timestamp,
+              whatsapp_message_id: message.id,
+            })
+            .select()
+            .single();
+
+          if (mensagemError) {
+            console.error('Error creating mensagem from WhatsApp:', mensagemError);
+          } else {
+            console.log('Mensagem criada a partir do WhatsApp:', novaMensagem?.id);
+          }
+        }
       }
     }
 
