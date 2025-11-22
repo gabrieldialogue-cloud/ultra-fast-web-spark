@@ -70,6 +70,8 @@ export function ChatMessage({
   const config = remetenteConfig[remetenteTipo];
   const Icon = config.icon;
 
+  console.log('ChatMessage:', { remetenteTipo, status, readAt, deliveredAt, conteudo: conteudo.substring(0, 30) });
+
   const isImage = attachmentType === 'image';
   const isDocument = attachmentType === 'document';
 
@@ -228,7 +230,7 @@ export function ChatMessage({
                   {status === "enviando" ? (
                     <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-60 animate-pulse" />
                   ) : status === "lida" || readAt ? (
-                    <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                    <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-success" />
                   ) : status === "entregue" || deliveredAt ? (
                     <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 opacity-60" />
                   ) : (

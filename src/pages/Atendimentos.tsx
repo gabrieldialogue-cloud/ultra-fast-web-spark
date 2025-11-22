@@ -418,6 +418,7 @@ export default function Atendimentos() {
             // Add status for non-client messages
             const messageWithStatus = {
               ...newMessage,
+              delivered_at: newMessage.delivered_at || null,
               status: (newMessage.remetente_tipo === 'vendedor' || newMessage.remetente_tipo === 'supervisor' || newMessage.remetente_tipo === 'ia')
                 ? 'enviada' as const
                 : undefined
@@ -523,25 +524,38 @@ export default function Atendimentos() {
     
     const { data } = await supabase
       .from("mensagens")
-      .select("*")
+      .select("*, delivered_at")
       .eq('atendimento_id', atendimentoId)
       .order("created_at", { ascending: false })
       .limit(queryLimit);
     
+    console.log('Fetched messages:', data?.length, 'messages');
+    
     if (data) {
+      console.log('Processing messages, first message:', data[0]);
+      
       // Add status to messages based on read_at and delivered_at
       const messagesWithStatus = data.map(msg => {
+        let msgStatus = undefined;
+        
         if (msg.remetente_tipo === 'vendedor' || msg.remetente_tipo === 'supervisor' || msg.remetente_tipo === 'ia') {
           if (msg.read_at) {
-            return { ...msg, status: 'lida' as const };
-          } else if ((msg as any).delivered_at) {
-            return { ...msg, status: 'entregue' as const };
+            msgStatus = 'lida' as const;
+          } else if (msg.delivered_at) {
+            msgStatus = 'entregue' as const;
           } else {
-            return { ...msg, status: 'enviada' as const };
+            msgStatus = 'enviada' as const;
           }
         }
-        return { ...msg, status: undefined };
+        
+        return { 
+          ...msg, 
+          status: msgStatus,
+          delivered_at: msg.delivered_at || null
+        };
       });
+      
+      console.log('Messages with status:', messagesWithStatus.length, 'messages');
       
       // Reverse to show oldest first, newest last
       setMensagensVendedor([...messagesWithStatus].reverse());
@@ -1691,29 +1705,30 @@ export default function Atendimentos() {
                                             <Bot className="h-12 w-12 mb-4 opacity-50" />
                                             <p>Nenhuma mensagem ainda</p>
                                           </div>
-                                        ) : (
-                                          <div className="space-y-4">
-                                            {hasMoreMessages && (
-                                              <div className="flex justify-center pb-4">
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={loadMoreMessages}
-                                                  className="text-xs"
-                                                >
-                                                  Carregar mensagens anteriores
-                                                </Button>
-                                              </div>
-                                            )}
-                                            {searchMessages && filteredMensagensVendedor.length === 0 ? (
-                                              <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
-                                                <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-                                                <p>Nenhuma mensagem encontrada</p>
-                                                <p className="text-xs mt-1">Tente buscar com outros termos</p>
-                                              </div>
-                                            ) : (
-                                              <>
-                                                 {filteredMensagensVendedor.map((mensagem, index) => {
+                                         ) : (
+                                           <div className="space-y-4">
+                                             {hasMoreMessages && (
+                                               <div className="flex justify-center pb-4">
+                                                 <Button
+                                                   variant="outline"
+                                                   size="sm"
+                                                   onClick={loadMoreMessages}
+                                                   className="text-xs"
+                                                 >
+                                                   Carregar mensagens anteriores
+                                                 </Button>
+                                               </div>
+                                             )}
+                                             {searchMessages && filteredMensagensVendedor.length === 0 ? (
+                                               <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
+                                                 <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                                                 <p>Nenhuma mensagem encontrada</p>
+                                                 <p className="text-xs mt-1">Tente buscar com outros termos</p>
+                                               </div>
+                                             ) : (
+                                               <>
+                                                  {console.log('Rendering messages:', filteredMensagensVendedor.length)}
+                                                  {filteredMensagensVendedor.map((mensagem, index) => {
                                                   const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
                                                   const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
                                                   const currentAtendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
@@ -1731,11 +1746,11 @@ export default function Atendimentos() {
                                                       isHighlighted={highlightedMessageId === mensagem.id}
                                                       readAt={mensagem.read_at}
                                                       showSenderName={showSenderName}
-                                                      clientePushName={currentAtendimento?.clientes?.push_name}
-                                                      clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
-                                                      status={mensagem.status}
-                                                      deliveredAt={(mensagem as any).delivered_at}
-                                                    />
+                      clientePushName={currentAtendimento?.clientes?.push_name}
+                      clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
+                      status={mensagem.status}
+                      deliveredAt={mensagem.delivered_at}
+                    />
                                                   );
                                                 })}
                                               </>
