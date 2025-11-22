@@ -681,6 +681,22 @@ export default function Atendimentos() {
     }
   }, [mensagensVendedor, isSupervisor]);
 
+  // Polling de mensagens para garantir atualização mesmo sem realtime
+  useEffect(() => {
+    if (!selectedAtendimentoIdVendedor || isSupervisor) return;
+
+    console.log('⏱️ Iniciando polling de mensagens para atendimento:', selectedAtendimentoIdVendedor);
+    const intervalId = setInterval(() => {
+      console.log('⏱️ Polling: recarregando mensagens do atendimento', selectedAtendimentoIdVendedor);
+      fetchMensagensVendedor(selectedAtendimentoIdVendedor);
+    }, 5000); // 5 segundos
+
+    return () => {
+      console.log('🧹 Limpando polling de mensagens para atendimento:', selectedAtendimentoIdVendedor);
+      clearInterval(intervalId);
+    };
+  }, [selectedAtendimentoIdVendedor, isSupervisor]);
+
   // Send message function - Optimized for low latency
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedAtendimentoIdVendedor || !vendedorId || isSending) {
