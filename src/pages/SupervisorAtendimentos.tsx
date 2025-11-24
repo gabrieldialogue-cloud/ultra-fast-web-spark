@@ -9,6 +9,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface Vendedor {
   id: string;
@@ -356,6 +364,92 @@ export default function SupervisorAtendimentos() {
             Supervisor
           </Badge>
         </div>
+
+        {/* Breadcrumb de navegação */}
+        {(selectedMarca || selectedVendedor || selectedAtendimento) && (
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedMarca(null);
+                    setSelectedVendedor(null);
+                    setSelectedAtendimento(null);
+                    setCollapsedColumns({ marcas: false, vendedores: true, chat: true });
+                  }}
+                  className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                >
+                  <Tag className="h-4 w-4" />
+                  Marcas
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+
+              {selectedMarca && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {selectedVendedor ? (
+                      <BreadcrumbLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedVendedor(null);
+                          setSelectedAtendimento(null);
+                          setCollapsedColumns(prev => ({ ...prev, vendedores: false, chat: true }));
+                        }}
+                        className="hover:text-primary transition-colors"
+                      >
+                        {selectedMarca}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{selectedMarca}</BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                </>
+              )}
+
+              {selectedVendedor && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {selectedAtendimento ? (
+                      <BreadcrumbLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedAtendimento(null);
+                        }}
+                        className="flex items-center gap-1.5 hover:text-primary transition-colors"
+                      >
+                        <Users className="h-4 w-4" />
+                        {selectedVendedor.nome}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage className="flex items-center gap-1.5">
+                        <Users className="h-4 w-4" />
+                        {selectedVendedor.nome}
+                      </BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                </>
+              )}
+
+              {selectedAtendimento && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="flex items-center gap-1.5">
+                      <MessageSquare className="h-4 w-4" />
+                      {selectedAtendimento.clientes?.nome || 'Cliente'}
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
+        )}
 
         {loading ? (
           <Card>
