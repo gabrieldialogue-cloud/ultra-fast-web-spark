@@ -1350,9 +1350,9 @@ export default function Atendimentos() {
                         </p>
                       </div>
                       ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[520px]">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                           {/* Lista de Atendimentos */}
-                          <Card className="lg:col-span-1 h-full">
+                          <Card className="lg:col-span-1">
                            <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                               <MessageSquare className="h-5 w-5" />
@@ -1371,8 +1371,8 @@ export default function Atendimentos() {
                               />
                             </div>
                           </CardHeader>
-                          <CardContent className="p-0 h-full">
-                            <ScrollArea className="h-full">
+                          <CardContent className="p-0">
+                            <ScrollArea className="h-[60vh]">
                             {filteredAtendimentosVendedor.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full px-4 py-6 text-muted-foreground">
                                   <MessageSquare className="h-6 w-6 mb-2 opacity-50" />
@@ -1519,7 +1519,7 @@ export default function Atendimentos() {
                         </Card>
 
                         {/* Chat Area */}
-                        <Card className="lg:col-span-2 h-full flex flex-col">
+                        <Card className="lg:col-span-2">
                           <CardHeader className="border-b">
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-3">
@@ -1576,8 +1576,8 @@ export default function Atendimentos() {
                               </div>
                             )}
                           </CardHeader>
-                          <CardContent className="p-0 flex-1 flex flex-col">
-                            <Tabs defaultValue="chat" className="w-full h-full flex flex-col">
+                          <CardContent className="p-0">
+                            <Tabs defaultValue="chat" className="w-full">
                               <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-4">
                                 <TabsTrigger value="chat" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                                   Chat
@@ -1588,9 +1588,9 @@ export default function Atendimentos() {
                                 </TabsTrigger>
                               </TabsList>
                               
-                              <TabsContent value="chat" className="mt-0 flex-1 flex flex-col">
+                              <TabsContent value="chat" className="mt-0">
                                 <ScrollArea 
-                                  className="flex-1 rounded-b-xl relative"
+                                  className="h-[60vh] rounded-b-xl relative"
                                   ref={scrollRef}
                                 >
                                   {/* Textura de fundo aplicada diretamente abaixo das mensagens */}
