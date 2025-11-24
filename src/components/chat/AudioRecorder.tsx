@@ -130,7 +130,10 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   };
 
   const handleCancel = () => {
+    // Flag para indicar cancelamento
     if (recorderRef.current) {
+      // Remover o callback antes de parar para não enviar
+      recorderRef.current.ondataavailable = null;
       recorderRef.current.stop();
       if (recordTimeoutRef.current) {
         clearTimeout(recordTimeoutRef.current);
@@ -192,19 +195,19 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
             </div>
 
             {/* Audio Visualization */}
-            <div className="px-5 py-6">
-              <div className="relative p-2 rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/40 shadow-inner">
+            <div className="px-5 py-4">
+              <div className="relative rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/40 shadow-inner overflow-hidden">
                 {isSending ? (
-                  <div className="flex items-center justify-center h-24">
+                  <div className="flex items-center justify-center h-[180px]">
                     <Loader2 className="h-8 w-8 text-green-500 animate-spin" />
                   </div>
                 ) : (
-                  <>
+                  <div className="relative">
                     <LiveAudioVisualizer stream={streamRef.current} isRecording={isRecording} />
-                    <p className="text-center text-sm text-muted-foreground mt-2 px-2">
+                    <p className="text-center text-sm text-muted-foreground py-3 px-4">
                       Fale agora... Suas ondas aparecem em tempo real
                     </p>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
