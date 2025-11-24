@@ -354,20 +354,6 @@ export default function SupervisorAtendimentos() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between bg-gradient-to-r from-primary/10 via-primary/5 to-transparent rounded-2xl p-6 border border-primary/20">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Atendimentos
-            </h1>
-            <p className="text-muted-foreground mt-2 text-lg">
-              Acompanhe os atendimentos em tempo real
-            </p>
-          </div>
-          <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-6 py-3 text-base shadow-lg shadow-primary/30">
-            Supervisor
-          </Badge>
-        </div>
-
         {/* Breadcrumb de navegação */}
         {(selectedMarca || selectedVendedor || selectedAtendimento) && (
           <Breadcrumb>

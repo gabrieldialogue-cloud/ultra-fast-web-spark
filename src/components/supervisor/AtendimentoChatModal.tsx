@@ -664,6 +664,19 @@ export function AtendimentoChatModal({
                   disabled={isSending}
                 />
                 <div className="flex gap-2">
+                  <Button
+                    onClick={handleGenerateSuggestion}
+                    disabled={isGeneratingSuggestion || isSending}
+                    size="icon"
+                    className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
+                    title="Gerar resposta com IA"
+                  >
+                    {isGeneratingSuggestion ? (
+                      <Loader2 className="h-5 w-5 text-white animate-spin" />
+                    ) : (
+                      <Sparkles className="h-5 w-5 text-white" />
+                    )}
+                  </Button>
                   <FileUpload 
                     onFileSelected={handleFileSelected}
                     disabled={isSending}
@@ -802,27 +815,6 @@ export function AtendimentoChatModal({
               </ScrollArea>
 
               <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-6 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0">
-                <div className="flex gap-2 mb-2">
-                  <Button
-                    onClick={handleGenerateSuggestion}
-                    disabled={isGeneratingSuggestion || isSending}
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 border-purple-500/50 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950"
-                  >
-                    {isGeneratingSuggestion ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Gerando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Gerar Resposta com IA
-                      </>
-                    )}
-                  </Button>
-                </div>
                 <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
                   <Textarea
                     value={message}
@@ -833,6 +825,19 @@ export function AtendimentoChatModal({
                     disabled={isSending}
                   />
                   <div className="flex gap-2">
+                    <Button
+                      onClick={handleGenerateSuggestion}
+                      disabled={isGeneratingSuggestion || isSending}
+                      size="icon"
+                      className="h-14 w-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
+                      title="Gerar resposta com IA"
+                    >
+                      {isGeneratingSuggestion ? (
+                        <Loader2 className="h-5 w-5 text-white animate-spin" />
+                      ) : (
+                        <Sparkles className="h-5 w-5 text-white" />
+                      )}
+                    </Button>
                     <FileUpload 
                       onFileSelected={handleFileSelected}
                       disabled={isSending}
