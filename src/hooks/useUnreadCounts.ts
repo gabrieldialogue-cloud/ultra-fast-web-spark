@@ -100,7 +100,7 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [enabled, vendedorId, currentAtendimentoId]);
+  }, [enabled, vendedorId]);
 
   // Marcar mensagens como lidas e limpar contador
   const clearUnreadCount = useCallback(async (atendimentoId: string) => {
