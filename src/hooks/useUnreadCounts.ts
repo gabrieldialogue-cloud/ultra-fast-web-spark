@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface UseUnreadCountsProps {
@@ -10,42 +10,89 @@ interface UseUnreadCountsProps {
 
 export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAtendimentoId }: UseUnreadCountsProps) {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const initialFetchDone = useRef(false);
+  const previousAtendimentoIds = useRef<Set<string>>(new Set());
 
-  // Fetch unread counts for all atendimentos
-  const fetchUnreadCounts = useCallback(async () => {
-    if (!vendedorId || !enabled || atendimentos.length === 0) {
-      setUnreadCounts({});
+  // Função para buscar contador de um atendimento específico
+  const fetchSingleUnreadCount = useCallback(async (atendimentoId: string) => {
+    if (!vendedorId) return 0;
+    
+    const { count } = await supabase
+      .from('mensagens')
+      .select('*', { count: 'exact', head: true })
+      .eq('atendimento_id', atendimentoId)
+      .in('remetente_tipo', ['cliente', 'ia'])
+      .is('read_at', null);
+    
+    return count || 0;
+  }, [vendedorId]);
+
+  // Fetch inicial APENAS - busca contadores para todos os atendimentos uma vez
+  useEffect(() => {
+    if (!vendedorId || !enabled || atendimentos.length === 0 || initialFetchDone.current) {
       return;
     }
 
-    console.log('🔄 Refazendo fetch de contadores não lidos para', atendimentos.length, 'atendimentos');
+    console.log('🎯 Fetch inicial de contadores para', atendimentos.length, 'atendimentos');
 
-    const counts: Record<string, number> = {};
-    
-    // Contar não lidas para TODOS os atendimentos, sem exceção
-    for (const atendimento of atendimentos) {
-      const { count } = await supabase
-        .from('mensagens')
-        .select('*', { count: 'exact', head: true })
-        .eq('atendimento_id', atendimento.id)
-        .in('remetente_tipo', ['cliente', 'ia'])
-        .is('read_at', null);
+    const fetchInitialCounts = async () => {
+      const counts: Record<string, number> = {};
       
-      if (count && count > 0) {
-        counts[atendimento.id] = count;
+      for (const atendimento of atendimentos) {
+        const count = await fetchSingleUnreadCount(atendimento.id);
+        if (count > 0) {
+          counts[atendimento.id] = count;
+        }
       }
-    }
-    
-    console.log('📊 Contadores atualizados:', counts);
-    setUnreadCounts(counts);
-  }, [vendedorId, enabled, atendimentos]);
+      
+      console.log('📊 Contadores iniciais:', counts);
+      setUnreadCounts(counts);
+      initialFetchDone.current = true;
+      
+      // Armazenar IDs atuais
+      previousAtendimentoIds.current = new Set(atendimentos.map(a => a.id));
+    };
 
-  // Fetch inicial e quando a lista de atendimentos ou atendimento atual mudar
+    fetchInitialCounts();
+  }, [vendedorId, enabled, atendimentos, fetchSingleUnreadCount]);
+
+  // Detectar novos atendimentos e buscar seus contadores
   useEffect(() => {
-    fetchUnreadCounts();
-  }, [fetchUnreadCounts]);
+    if (!initialFetchDone.current || !vendedorId || !enabled) return;
 
-  // Subscribe to real-time updates - INSERTs e UPDATEs de mensagens
+    const currentIds = new Set(atendimentos.map(a => a.id));
+    const newIds = Array.from(currentIds).filter(id => !previousAtendimentoIds.current.has(id));
+
+    if (newIds.length > 0) {
+      console.log('🆕 Novos atendimentos detectados:', newIds);
+      
+      // Buscar contadores para novos atendimentos
+      newIds.forEach(async (atendimentoId) => {
+        const count = await fetchSingleUnreadCount(atendimentoId);
+        if (count > 0) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [atendimentoId]: count
+          }));
+        }
+      });
+    }
+
+    // Remover contadores de atendimentos que não existem mais
+    const removedIds = Array.from(previousAtendimentoIds.current).filter(id => !currentIds.has(id));
+    if (removedIds.length > 0) {
+      console.log('🗑️ Atendimentos removidos:', removedIds);
+      setUnreadCounts(prev => {
+        const newCounts = { ...prev };
+        removedIds.forEach(id => delete newCounts[id]);
+        return newCounts;
+      });
+    }
+
+    previousAtendimentoIds.current = currentIds;
+  }, [atendimentos, vendedorId, enabled, fetchSingleUnreadCount]);
+
+  // Subscribe to real-time updates - INSERTs de mensagens
   useEffect(() => {
     if (!enabled || !vendedorId) return;
 
@@ -59,7 +106,7 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
           table: 'mensagens'
         },
         (payload) => {
-          // Nova mensagem de cliente/IA - sempre incrementar, independente do atendimento atual
+          // Nova mensagem de cliente/IA - sempre incrementar
           if (payload.new && 
               (payload.new.remetente_tipo === 'cliente' || payload.new.remetente_tipo === 'ia')) {
             const atendimentoId = payload.new.atendimento_id;
@@ -68,7 +115,7 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
             
             setUnreadCounts(prev => {
               const newCount = (prev[atendimentoId] || 0) + 1;
-              console.log(`   Contador anterior: ${prev[atendimentoId] || 0}, novo: ${newCount}`);
+              console.log(`   Contador: ${prev[atendimentoId] || 0} → ${newCount}`);
               return {
                 ...prev,
                 [atendimentoId]: newCount
@@ -77,9 +124,6 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
           }
         }
       )
-      // REMOVIDO: Listener de UPDATE
-      // Não precisamos decrementar o contador via UPDATE porque já limpamos localmente 
-      // quando o usuário clica no card (clearUnreadCount)
       .subscribe();
 
     return () => {
@@ -91,7 +135,7 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
   const clearUnreadCount = useCallback(async (atendimentoId: string) => {
     if (!vendedorId) return;
     
-    console.log('🧹 Limpando contador e marcando mensagens como lidas para:', atendimentoId);
+    console.log('🧹 Limpando contador para:', atendimentoId);
     
     // Primeiro, remover do contador local IMEDIATAMENTE
     setUnreadCounts(prev => {
@@ -101,7 +145,6 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
     });
     
     // Depois marcar mensagens como lidas no banco
-    // (isso vai disparar UPDATEs, mas já limpamos o contador local então não terá efeito)
     const { data: unreadMessages } = await supabase
       .from('mensagens')
       .select('id')
@@ -113,7 +156,6 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
       const ids = unreadMessages.map(m => m.id);
       const now = new Date().toISOString();
       
-      // Marcar como lidas
       await supabase
         .from('mensagens')
         .update({ read_at: now, read_by_id: vendedorId })
@@ -121,5 +163,22 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
     }
   }, [vendedorId]);
 
-  return { unreadCounts, clearUnreadCount, refreshUnreadCounts: fetchUnreadCounts };
+  // Função para refazer fetch completo (se necessário)
+  const refreshUnreadCounts = useCallback(async () => {
+    if (!vendedorId || !enabled || atendimentos.length === 0) return;
+
+    console.log('🔄 Refresh manual de contadores');
+    
+    const counts: Record<string, number> = {};
+    for (const atendimento of atendimentos) {
+      const count = await fetchSingleUnreadCount(atendimento.id);
+      if (count > 0) {
+        counts[atendimento.id] = count;
+      }
+    }
+    
+    setUnreadCounts(counts);
+  }, [vendedorId, enabled, atendimentos, fetchSingleUnreadCount]);
+
+  return { unreadCounts, clearUnreadCount, refreshUnreadCounts };
 }
