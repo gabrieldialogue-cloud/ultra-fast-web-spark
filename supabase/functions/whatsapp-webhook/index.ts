@@ -162,14 +162,19 @@ serve(async (req) => {
           const profileName = value?.contacts?.[0]?.profile?.name;
           let profilePicture = value?.contacts?.[0]?.profile?.picture;
           
-          // Se não tiver foto no payload, buscar através da API do WhatsApp
-          if (!profilePicture || !existingCliente.profile_picture_url) {
+          // Cache de foto: só buscar se não foi buscada nos últimos 7 dias ou se não existe
+          const shouldFetchPhoto = !existingCliente.profile_picture_url || 
+            !existingCliente.profile_picture_fetched_at ||
+            (new Date().getTime() - new Date(existingCliente.profile_picture_fetched_at).getTime()) > 7 * 24 * 60 * 60 * 1000;
+          
+          // Se não tiver foto no payload e deve buscar, buscar através da API do WhatsApp
+          if (!profilePicture && shouldFetchPhoto) {
             const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
             const waId = value?.contacts?.[0]?.wa_id || from;
             
             if (accessToken && waId) {
               try {
-                console.log(`Tentando buscar foto de perfil para ${waId}`);
+                console.log(`🔍 Buscando foto de perfil para ${waId} (cache expirado ou inexistente)`);
                 const contactRes = await fetch(
                   `https://graph.facebook.com/v21.0/${waId}?fields=profile_pic`,
                   {
@@ -179,18 +184,25 @@ serve(async (req) => {
                   }
                 );
                 
+                console.log(`📊 Status da requisição de foto: ${contactRes.status}`);
+                
                 if (contactRes.ok) {
                   const contactData = await contactRes.json();
                   profilePicture = contactData?.profile_pic;
-                  console.log('Foto de perfil obtida:', profilePicture);
+                  console.log(`✅ Foto de perfil obtida:`, profilePicture ? 'URL válida' : 'Nenhuma foto disponível');
+                  console.log(`📸 URL completa:`, profilePicture);
                 } else {
                   const errorText = await contactRes.text();
-                  console.error('Erro ao buscar foto de perfil (status):', contactRes.status, errorText);
+                  console.error(`❌ Erro ao buscar foto de perfil (status ${contactRes.status}):`, errorText);
                 }
               } catch (err) {
-                console.error('Erro ao buscar foto de perfil (exception):', err);
+                console.error('❌ Erro ao buscar foto de perfil (exception):', err);
               }
+            } else {
+              console.warn('⚠️ Não foi possível buscar foto: accessToken ou waId ausente');
             }
+          } else if (!profilePicture && !shouldFetchPhoto) {
+            console.log('⏭️ Pulando busca de foto (cache ainda válido)');
           }
           
           const updates: any = {};
@@ -200,18 +212,28 @@ serve(async (req) => {
           if (profileName) {
             updates.push_name = profileName;
           }
+          
+          // Atualizar foto e timestamp de cache
           if (profilePicture && (!existingCliente.profile_picture_url || existingCliente.profile_picture_url !== profilePicture)) {
             updates.profile_picture_url = profilePicture;
+            updates.profile_picture_fetched_at = new Date().toISOString();
+          } else if (shouldFetchPhoto && !profilePicture) {
+            // Marca que tentamos buscar (para não tentar novamente logo em seguida)
+            updates.profile_picture_fetched_at = new Date().toISOString();
           }
           
           if (Object.keys(updates).length > 0) {
-            await supabase
+            const { error: updateError } = await supabase
               .from('clientes')
               .update(updates)
               .eq('id', existingCliente.id);
             
-            cliente = { ...existingCliente, ...updates };
-            console.log('Cliente atualizado com foto de perfil:', updates);
+            if (updateError) {
+              console.error('❌ Erro ao atualizar cliente:', updateError);
+            } else {
+              cliente = { ...existingCliente, ...updates };
+              console.log('✅ Cliente atualizado:', updates);
+            }
           }
         } else {
           // Get profile info from WhatsApp contact info
@@ -225,7 +247,7 @@ serve(async (req) => {
             
             if (accessToken && waId) {
               try {
-                console.log(`Tentando buscar foto de perfil para novo cliente ${waId}`);
+                console.log(`🔍 Buscando foto de perfil para novo cliente ${waId}`);
                 const contactRes = await fetch(
                   `https://graph.facebook.com/v21.0/${waId}?fields=profile_pic`,
                   {
@@ -235,17 +257,22 @@ serve(async (req) => {
                   }
                 );
                 
+                console.log(`📊 Status da requisição de foto (novo cliente): ${contactRes.status}`);
+                
                 if (contactRes.ok) {
                   const contactData = await contactRes.json();
                   profilePicture = contactData?.profile_pic;
-                  console.log('Foto de perfil obtida para novo cliente:', profilePicture);
+                  console.log(`✅ Foto obtida para novo cliente:`, profilePicture ? 'URL válida' : 'Nenhuma foto');
+                  console.log(`📸 URL completa:`, profilePicture);
                 } else {
                   const errorText = await contactRes.text();
-                  console.error('Erro ao buscar foto de perfil para novo cliente (status):', contactRes.status, errorText);
+                  console.error(`❌ Erro ao buscar foto (novo cliente - status ${contactRes.status}):`, errorText);
                 }
               } catch (err) {
-                console.error('Erro ao buscar foto de perfil para novo cliente:', err);
+                console.error('❌ Erro ao buscar foto (novo cliente - exception):', err);
               }
+            } else {
+              console.warn('⚠️ Não foi possível buscar foto: accessToken ou waId ausente');
             }
           }
           
@@ -256,16 +283,17 @@ serve(async (req) => {
               telefone: from,
               push_name: profileName,
               profile_picture_url: profilePicture || null,
+              profile_picture_fetched_at: new Date().toISOString(),
             })
             .select()
             .single();
 
           if (clienteError) {
-            console.error('Error creating cliente:', clienteError);
+            console.error('❌ Erro ao criar cliente:', clienteError);
             continue;
           }
           cliente = newCliente;
-          console.log('Novo cliente criado com foto de perfil:', profilePicture);
+          console.log('✅ Novo cliente criado. Foto:', profilePicture ? 'Sim' : 'Não');
         }
 
         // Find or create atendimento
