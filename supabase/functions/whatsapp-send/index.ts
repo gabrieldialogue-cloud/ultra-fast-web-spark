@@ -41,6 +41,7 @@ serve(async (req) => {
       payload.type = 'audio';
       payload.audio = {
         link: audioUrl,
+        voice: true, // Marca como mensagem de voz (PTT) ao invés de documento de áudio
       };
     } else {
       payload.type = 'text';
