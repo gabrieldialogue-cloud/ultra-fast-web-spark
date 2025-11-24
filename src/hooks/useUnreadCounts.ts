@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface UseUnreadCountsProps {
@@ -10,25 +10,19 @@ interface UseUnreadCountsProps {
 
 export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAtendimentoId }: UseUnreadCountsProps) {
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  const clearedAtendimentosRef = useRef<Set<string>>(new Set());
-  const hasInitializedRef = useRef(false);
 
   // Fetch unread counts for all atendimentos
-  const fetchUnreadCounts = async () => {
-    if (!vendedorId || !enabled || atendimentos.length === 0) return;
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!vendedorId || !enabled || atendimentos.length === 0) {
+      setUnreadCounts({});
+      return;
+    }
 
     const counts: Record<string, number> = {};
     
     for (const atendimento of atendimentos) {
-      // Não buscar contadores para atendimentos que foram manualmente limpos
-      if (clearedAtendimentosRef.current.has(atendimento.id)) {
-        console.log('⏭️ Pulando atendimento cleared:', atendimento.id);
-        continue;
-      }
-      
-      // NÃO mostrar contador para o atendimento que está sendo visualizado
+      // Não contar não lidas para o atendimento que está sendo visualizado
       if (atendimento.id === currentAtendimentoId) {
-        console.log('⏭️ Pulando atendimento atual (visualizando):', atendimento.id);
         continue;
       }
       
@@ -45,18 +39,14 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
     }
     
     setUnreadCounts(counts);
-  };
+  }, [vendedorId, enabled, atendimentos, currentAtendimentoId]);
 
-  // Initial fetch e re-fetch quando currentAtendimentoId ou atendimentos mudarem
+  // Fetch inicial e quando a lista de atendimentos ou atendimento atual mudar
   useEffect(() => {
-    if (enabled && vendedorId) {
-      console.log('🔄 Fetch de unread counts (atendimento atual mudou ou lista atualizada):', currentAtendimentoId);
-      fetchUnreadCounts();
-      hasInitializedRef.current = true;
-    }
-  }, [enabled, vendedorId, currentAtendimentoId, atendimentos.length]);
+    fetchUnreadCounts();
+  }, [fetchUnreadCounts]);
 
-  // Subscribe to real-time updates - APENAS para INSERTs de novas mensagens
+  // Subscribe to real-time updates - INSERTs e UPDATEs de mensagens
   useEffect(() => {
     if (!enabled || !vendedorId) return;
 
@@ -65,61 +55,50 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
       .on(
         'postgres_changes',
         {
-          event: 'INSERT', // Apenas INSERTs, não UPDATEs
-          schema: 'public',
-          table: 'mensagens'
-        },
-        (payload) => {
-          console.log('📨 Nova mensagem inserida, atualizando contadores', payload);
-          // Apenas buscar novamente se for mensagem de cliente/IA
-          if (payload.new && 
-              (payload.new.remetente_tipo === 'cliente' || payload.new.remetente_tipo === 'ia')) {
-            // Sempre buscar novamente - a lógica de ignorar o atendimento atual está no fetchUnreadCounts
-            fetchUnreadCounts();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [enabled, vendedorId, atendimentos, currentAtendimentoId]);
-
-  // Clear unread count for specific atendimento e marcar como "cleared"
-  const clearUnreadCount = (atendimentoId: string) => {
-    console.log('🧹 Limpando contador de não lidas para:', atendimentoId);
-    clearedAtendimentosRef.current.add(atendimentoId);
-    setUnreadCounts(prev => {
-      const newCounts = { ...prev };
-      delete newCounts[atendimentoId];
-      return newCounts;
-    });
-  };
-
-  // Resetar cleared quando houver nova mensagem de cliente/IA nesse atendimento
-  useEffect(() => {
-    if (!enabled || !vendedorId) return;
-
-    const channel = supabase
-      .channel('reset-cleared-atendimentos')
-      .on(
-        'postgres_changes',
-        {
           event: 'INSERT',
           schema: 'public',
           table: 'mensagens'
         },
         (payload) => {
+          // Nova mensagem de cliente/IA
           if (payload.new && 
               (payload.new.remetente_tipo === 'cliente' || payload.new.remetente_tipo === 'ia')) {
             const atendimentoId = payload.new.atendimento_id;
             
-            // Apenas resetar cleared se NÃO for o atendimento atual
+            // Se não é o atendimento atual, incrementar contador
             if (atendimentoId !== currentAtendimentoId) {
-              console.log('🔄 Nova mensagem de cliente/IA, removendo flag de cleared para:', atendimentoId);
-              clearedAtendimentosRef.current.delete(atendimentoId);
+              setUnreadCounts(prev => ({
+                ...prev,
+                [atendimentoId]: (prev[atendimentoId] || 0) + 1
+              }));
             }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'mensagens'
+        },
+        (payload) => {
+          // Mensagem foi marcada como lida
+          if (payload.old && !payload.old.read_at && payload.new && payload.new.read_at &&
+              (payload.new.remetente_tipo === 'cliente' || payload.new.remetente_tipo === 'ia')) {
+            const atendimentoId = payload.new.atendimento_id;
+            
+            // Decrementar contador
+            setUnreadCounts(prev => {
+              const newCounts = { ...prev };
+              if (newCounts[atendimentoId]) {
+                newCounts[atendimentoId] -= 1;
+                if (newCounts[atendimentoId] <= 0) {
+                  delete newCounts[atendimentoId];
+                }
+              }
+              return newCounts;
+            });
           }
         }
       )
@@ -129,6 +108,39 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
       supabase.removeChannel(channel);
     };
   }, [enabled, vendedorId, currentAtendimentoId]);
+
+  // Marcar mensagens como lidas e limpar contador
+  const clearUnreadCount = useCallback(async (atendimentoId: string) => {
+    if (!vendedorId) return;
+    
+    console.log('🧹 Limpando contador e marcando mensagens como lidas para:', atendimentoId);
+    
+    // Buscar mensagens não lidas
+    const { data: unreadMessages } = await supabase
+      .from('mensagens')
+      .select('id')
+      .eq('atendimento_id', atendimentoId)
+      .in('remetente_tipo', ['cliente', 'ia'])
+      .is('read_at', null);
+    
+    if (unreadMessages && unreadMessages.length > 0) {
+      const ids = unreadMessages.map(m => m.id);
+      const now = new Date().toISOString();
+      
+      // Marcar como lidas
+      await supabase
+        .from('mensagens')
+        .update({ read_at: now, read_by_id: vendedorId })
+        .in('id', ids);
+    }
+    
+    // Remover do contador local
+    setUnreadCounts(prev => {
+      const newCounts = { ...prev };
+      delete newCounts[atendimentoId];
+      return newCounts;
+    });
+  }, [vendedorId]);
 
   return { unreadCounts, clearUnreadCount, refreshUnreadCounts: fetchUnreadCounts };
 }
