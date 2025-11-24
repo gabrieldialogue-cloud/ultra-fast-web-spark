@@ -66,37 +66,37 @@ export default function SupervisorAtendimentos() {
       const newState = { ...prev };
       const isCurrentlyCollapsed = prev[column];
       
-      // Define a hierarquia das colunas invertida (da direita para esquerda)
-      const hierarchy: (keyof typeof collapsedColumns)[] = ['chat', 'contato', 'vendedores', 'marcas'];
+      // Define a hierarquia das colunas (da esquerda para direita)
+      const hierarchy: (keyof typeof collapsedColumns)[] = ['marcas', 'vendedores', 'contato', 'chat'];
       const currentIndex = hierarchy.indexOf(column);
       
       if (isCurrentlyCollapsed) {
-        // Abrindo uma coluna - deve abrir todas as posteriores (à direita)
-        for (let i = currentIndex; i >= 0; i--) {
+        // Verificar se pode abrir baseado nas seleções
+        if (column === 'vendedores' && !selectedMarca) {
+          return prev; // Não permite abrir vendedores sem marca selecionada
+        }
+        if (column === 'contato' && !selectedVendedor) {
+          return prev; // Não permite abrir contato sem vendedor selecionado
+        }
+        if (column === 'chat' && !selectedAtendimento) {
+          return prev; // Não permite abrir chat sem atendimento selecionado
+        }
+        
+        // Abrindo uma coluna - deve abrir todas as anteriores (à esquerda)
+        for (let i = 0; i <= currentIndex; i++) {
           newState[hierarchy[i]] = false;
         }
       } else {
         // Fechando uma coluna
         // Conta quantas colunas estarão abertas após fechar esta
-        let willBeOpenCount = 0;
-        for (let i = 0; i < hierarchy.length; i++) {
-          if (i < currentIndex) {
-            willBeOpenCount++; // Colunas à direita permanecerão abertas
-          } else if (i === currentIndex) {
-            // Esta coluna será fechada
-          } else {
-            if (!prev[hierarchy[i]]) {
-              willBeOpenCount++; // Colunas já abertas à esquerda
-            }
-          }
-        }
+        const openColumns = Object.entries(newState).filter(([_, value]) => !value).length;
         
-        // Não permite fechar se ficaria sem nenhuma coluna aberta
-        if (willBeOpenCount === 0) {
+        // Não permite fechar se é a única coluna aberta
+        if (openColumns <= 1) {
           return prev;
         }
         
-        // Fecha a coluna atual e todas as anteriores (à esquerda)
+        // Fecha a coluna atual e todas as posteriores (à direita)
         for (let i = currentIndex; i < hierarchy.length; i++) {
           newState[hierarchy[i]] = true;
         }
@@ -378,6 +378,7 @@ export default function SupervisorAtendimentos() {
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleColumn('vendedores')}
+                    disabled={!selectedMarca}
                     className="h-8 w-8 p-0"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -470,6 +471,7 @@ export default function SupervisorAtendimentos() {
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleColumn('contato')}
+                    disabled={!selectedVendedor}
                     className="h-8 w-8 p-0"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -630,6 +632,7 @@ export default function SupervisorAtendimentos() {
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleColumn('chat')}
+                    disabled={!selectedAtendimento}
                     className="h-8 w-8 p-0"
                   >
                     <ChevronRight className="h-4 w-4" />
