@@ -86,83 +86,120 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
   const renderCurvedArrow = (data: CurvedArrowData, key: string) => {
     const width = data.endX - data.startX;
     const height = data.endY - data.startY;
-    const distance = Math.sqrt(width * width + height * height);
     
-    // Calcular o ponto de controle para a curva (no meio, deslocado)
-    const midX = (data.startX + data.endX) / 2;
-    const midY = (data.startY + data.endY) / 2;
+    // Ajustar a intensidade da curva baseado na distância vertical
+    const curveRadius = Math.max(Math.abs(height) * 1.5, 60);
     
-    // Criar o caminho da curva usando divs
-    const curveIntensity = Math.abs(height) * 0.5;
+    // Criar path SVG para curva suave
+    const startControlX = data.startX + width * 0.25;
+    const startControlY = data.startY;
+    const endControlX = data.endX - width * 0.25;
+    const endControlY = data.endY;
+    
+    const svgPath = `M ${data.startX} ${data.startY} C ${startControlX} ${startControlY}, ${endControlX} ${endControlY}, ${data.endX} ${data.endY}`;
 
     return (
-      <div key={key} className="absolute inset-0 pointer-events-none">
-        {/* Linha horizontal do início */}
-        <div
-          className="absolute h-0.5 bg-gradient-to-r from-primary to-primary/80 animate-fade-in"
-          style={{
-            left: `${data.startX}px`,
-            top: `${data.startY}px`,
-            width: `${width * 0.3}px`,
-            transformOrigin: 'left center',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-foreground/50 to-transparent animate-shimmer" />
-        </div>
+      <svg
+        key={key}
+        className="fixed inset-0 pointer-events-none"
+        style={{ width: '100vw', height: '100vh', zIndex: 10 }}
+      >
+        <defs>
+          {/* Gradiente para a linha */}
+          <linearGradient id={`gradient-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" className="text-primary" style={{ stopColor: 'currentColor', stopOpacity: 0.8 }} />
+            <stop offset="50%" className="text-primary" style={{ stopColor: 'currentColor', stopOpacity: 1 }} />
+            <stop offset="100%" className="text-primary" style={{ stopColor: 'currentColor', stopOpacity: 0.8 }} />
+          </linearGradient>
 
-        {/* Curva central */}
-        <div
-          className="absolute animate-fade-in"
-          style={{
-            left: `${data.startX + width * 0.3}px`,
-            top: `${Math.min(data.startY, data.endY)}px`,
-            width: `${width * 0.4}px`,
-            height: `${Math.abs(height) + 20}px`,
-          }}
-        >
-          <div
-            className="absolute w-full h-full border-r-2 border-t-2 border-primary rounded-tr-[100px]"
-            style={{
-              transform: height > 0 ? 'scaleY(1)' : 'scaleY(-1)',
-              borderTopRightRadius: `${Math.abs(height) + 20}px ${Math.abs(height) + 20}px`,
-            }}
-          />
-        </div>
+          {/* Marker para a seta */}
+          <marker
+            id={`arrowhead-${key}`}
+            markerWidth="12"
+            markerHeight="12"
+            refX="10"
+            refY="6"
+            orient="auto"
+          >
+            <path
+              d="M2,2 L2,10 L10,6 z"
+              className="fill-primary"
+            />
+          </marker>
+        </defs>
 
-        {/* Linha horizontal do fim */}
-        <div
-          className="absolute h-0.5 bg-gradient-to-r from-primary/80 to-primary animate-fade-in"
+        {/* Glow de fundo */}
+        <path
+          d={svgPath}
+          fill="none"
+          className="stroke-primary/20"
+          strokeWidth="8"
+          strokeLinecap="round"
           style={{
-            left: `${data.endX - width * 0.3}px`,
-            top: `${data.endY}px`,
-            width: `${width * 0.3}px`,
-            transformOrigin: 'right center',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-foreground/50 to-transparent animate-shimmer" />
-        </div>
-
-        {/* Ícone da seta no final */}
-        <div
-          className="absolute animate-pulse"
-          style={{
-            left: `${data.endX - 8}px`,
-            top: `${data.endY - 12}px`,
-          }}
-        >
-          <ArrowRight className="h-6 w-6 text-primary drop-shadow-lg" />
-        </div>
-
-        {/* Ponto de início brilhante */}
-        <div
-          className="absolute w-3 h-3 bg-primary rounded-full animate-pulse"
-          style={{
-            left: `${data.startX - 6}px`,
-            top: `${data.startY - 6}px`,
-            boxShadow: '0 0 10px hsl(var(--primary))',
+            filter: 'blur(4px)',
           }}
         />
-      </div>
+
+        {/* Linha principal com animação de desenho */}
+        <path
+          d={svgPath}
+          fill="none"
+          stroke={`url(#gradient-${key})`}
+          strokeWidth="3"
+          strokeLinecap="round"
+          markerEnd={`url(#arrowhead-${key})`}
+          className="animate-draw-path"
+          style={{
+            strokeDasharray: 1000,
+            strokeDashoffset: 1000,
+            animation: 'drawPath 1.5s ease-out forwards',
+          }}
+        />
+
+        {/* Partícula animada viajando pela linha */}
+        <circle
+          r="5"
+          className="fill-primary animate-pulse"
+        >
+          <animateMotion
+            dur="2s"
+            repeatCount="indefinite"
+            path={svgPath}
+            begin="1.5s"
+          />
+          <animate
+            attributeName="opacity"
+            values="0;1;1;0"
+            dur="2s"
+            repeatCount="indefinite"
+            begin="1.5s"
+          />
+        </circle>
+
+        {/* Ponto inicial brilhante */}
+        <circle
+          cx={data.startX}
+          cy={data.startY}
+          r="4"
+          className="fill-primary animate-pulse"
+          style={{
+            filter: 'drop-shadow(0 0 6px hsl(var(--primary)))',
+          }}
+        />
+
+        {/* Ponto final brilhante */}
+        <circle
+          cx={data.endX}
+          cy={data.endY}
+          r="4"
+          className="fill-primary"
+          style={{
+            filter: 'drop-shadow(0 0 6px hsl(var(--primary)))',
+            animation: 'fadeInScale 0.3s ease-out 1.5s forwards',
+            opacity: 0,
+          }}
+        />
+      </svg>
     );
   };
 
@@ -170,23 +207,25 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
 
   return (
     <>
-      <div className="fixed inset-0 pointer-events-none z-10">
-        {marcaToVendedor && renderCurvedArrow(marcaToVendedor, 'marca-vendedor')}
-        {vendedorToCliente && renderCurvedArrow(vendedorToCliente, 'vendedor-cliente')}
-      </div>
+      {marcaToVendedor && renderCurvedArrow(marcaToVendedor, 'marca-vendedor')}
+      {vendedorToCliente && renderCurvedArrow(vendedorToCliente, 'vendedor-cliente')}
 
       <style>{`
-        @keyframes shimmer {
-          0% {
-            transform: translateX(-100%);
-          }
-          100% {
-            transform: translateX(100%);
+        @keyframes drawPath {
+          to {
+            stroke-dashoffset: 0;
           }
         }
 
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
+        @keyframes fadeInScale {
+          from {
+            opacity: 0;
+            transform: scale(0);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
       `}</style>
     </>
