@@ -1,13 +1,14 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Users, Loader2, ChevronLeft, ChevronRight, User, Phone, Mail } from "lucide-react";
+import { MessageSquare, Users, Loader2, ChevronLeft, ChevronRight, User, Phone, Mail, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { VendedorChatModal } from "@/components/supervisor/VendedorChatModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 
 interface Vendedor {
   id: string;
@@ -47,6 +48,10 @@ export default function SupervisorAtendimentos() {
   const [selectedMarca, setSelectedMarca] = useState<string | null>(null);
   const [selectedVendedor, setSelectedVendedor] = useState<Vendedor | null>(null);
   const [selectedAtendimento, setSelectedAtendimento] = useState<Atendimento | null>(null);
+  
+  // Estados para busca
+  const [searchMarca, setSearchMarca] = useState("");
+  const [searchVendedor, setSearchVendedor] = useState("");
   
   // Estados para controlar colunas colapsadas
   const [collapsedColumns, setCollapsedColumns] = useState({
@@ -193,20 +198,38 @@ export default function SupervisorAtendimentos() {
     ? atendimentos.filter(a => a.vendedor_fixo_id === selectedVendedor.id)
     : [];
 
-  // Calcular span das colunas baseado nas colunas colapsadas
-  const getColumnSpan = () => {
+  // Filtrar marcas com busca
+  const marcasFiltradas = Array.from(
+    new Set(
+      vendedoresFiltrados
+        .map(v => v.especialidade_marca)
+        .filter(Boolean)
+    )
+  ).sort().filter(marca => 
+    marca?.toLowerCase().includes(searchMarca.toLowerCase())
+  );
+
+  // Filtrar vendedores com busca
+  const vendedoresFiltradosPorBusca = vendedoresFiltrados
+    .filter(v => v.especialidade_marca === selectedMarca)
+    .filter(v => 
+      v.nome.toLowerCase().includes(searchVendedor.toLowerCase()) ||
+      v.email.toLowerCase().includes(searchVendedor.toLowerCase())
+    );
+
+  // Calcular classes de span das colunas
+  const getColumnClass = (column: keyof typeof collapsedColumns) => {
+    if (collapsedColumns[column]) return "col-span-1";
+    
     const collapsedCount = Object.values(collapsedColumns).filter(Boolean).length;
     const activeColumns = 4 - collapsedCount;
     
-    return {
-      marcas: collapsedColumns.marcas ? 1 : Math.floor(12 / activeColumns),
-      vendedores: collapsedColumns.vendedores ? 1 : Math.floor(12 / activeColumns),
-      contato: collapsedColumns.contato ? 1 : Math.floor(12 / activeColumns),
-      chat: collapsedColumns.chat ? 1 : Math.floor(12 / activeColumns)
-    };
+    if (activeColumns === 4) return "col-span-3";
+    if (activeColumns === 3) return "col-span-4";
+    if (activeColumns === 2) return "col-span-6";
+    if (activeColumns === 1) return "col-span-12";
+    return "col-span-3";
   };
-
-  const columnSpan = getColumnSpan();
 
   return (
     <MainLayout>
@@ -232,7 +255,7 @@ export default function SupervisorAtendimentos() {
         ) : (
           <div className="grid grid-cols-12 gap-4">
             {/* Column 1: Marcas */}
-            <Card className={`col-span-${columnSpan.marcas} transition-all duration-300`}>
+            <Card className={`${getColumnClass('marcas')} transition-all duration-300`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-base">
                   {!collapsedColumns.marcas && "Marcas"}
@@ -248,45 +271,44 @@ export default function SupervisorAtendimentos() {
               </CardHeader>
               {!collapsedColumns.marcas && (
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[600px]">
-                    <div className="space-y-1 p-4">
-                    {(() => {
-                      const marcas = Array.from(
-                        new Set(
-                          vendedoresFiltrados
-                            .map(v => v.especialidade_marca)
-                            .filter(Boolean)
-                        )
-                      ).sort();
-                      
-                      if (marcas.length === 0) {
-                        return (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Nenhuma marca cadastrada
-                          </p>
-                        );
-                      }
-                      
-                      return marcas.map((marca) => (
-                        <button
-                          key={marca}
-                          onClick={() => {
-                            setSelectedMarca(marca || null);
-                            setSelectedVendedor(null);
-                          }}
-                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                            selectedMarca === marca
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-muted'
-                          }`}
-                        >
-                          <div className="font-medium">{marca}</div>
-                          <div className="text-xs opacity-75 mt-1">
-                            {vendedoresFiltrados.filter(v => v.especialidade_marca === marca).length} vendedor(es)
-                          </div>
-                        </button>
-                      ));
-                    })()}
+                  <div className="p-4 pb-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar marca..."
+                        value={searchMarca}
+                        onChange={(e) => setSearchMarca(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[550px]">
+                    <div className="space-y-1 p-4 pt-2">
+                      {marcasFiltradas.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8">
+                          {searchMarca ? 'Nenhuma marca encontrada' : 'Nenhuma marca cadastrada'}
+                        </p>
+                      ) : (
+                        marcasFiltradas.map((marca) => (
+                          <button
+                            key={marca}
+                            onClick={() => {
+                              setSelectedMarca(marca || null);
+                              setSelectedVendedor(null);
+                            }}
+                            className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                              selectedMarca === marca
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            }`}
+                          >
+                            <div className="font-medium">{marca}</div>
+                            <div className="text-xs opacity-75 mt-1">
+                              {vendedoresFiltrados.filter(v => v.especialidade_marca === marca).length} vendedor(es)
+                            </div>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </ScrollArea>
                 </CardContent>
@@ -294,7 +316,7 @@ export default function SupervisorAtendimentos() {
             </Card>
 
             {/* Column 2: Vendedores */}
-            <Card className={`col-span-${columnSpan.vendedores} transition-all duration-300`}>
+            <Card className={`${getColumnClass('vendedores')} transition-all duration-300`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-base">
                   {!collapsedColumns.vendedores && (
@@ -315,48 +337,65 @@ export default function SupervisorAtendimentos() {
               </CardHeader>
               {!collapsedColumns.vendedores && (
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[600px]">
-                    {!selectedMarca ? (
-                    <div className="flex flex-col items-center justify-center h-full py-20">
+                  {!selectedMarca ? (
+                    <div className="flex flex-col items-center justify-center h-[600px] py-20">
                       <Users className="h-12 w-12 text-muted-foreground/40 mb-3" />
                       <p className="text-sm text-muted-foreground">
                         Selecione uma marca
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-1 p-4">
-                      {vendedoresFiltrados
-                        .filter(v => v.especialidade_marca === selectedMarca)
-                        .map((vendedor) => (
-                          <button
-                            key={vendedor.id}
-                            onClick={() => setSelectedVendedor(vendedor)}
-                            className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                              selectedVendedor?.id === vendedor.id
-                                ? 'bg-primary text-primary-foreground'
-                                : 'hover:bg-muted'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={`h-2.5 w-2.5 rounded-full ${
-                                vendedor.status_online ? 'bg-green-500' : 'bg-gray-400'
-                              }`} />
-                              <div className="flex-1">
-                                <div className="font-medium">{vendedor.nome}</div>
-                                <div className="text-xs opacity-75 mt-1">{vendedor.email}</div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
+                    <>
+                      <div className="p-4 pb-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar vendedor..."
+                            value={searchVendedor}
+                            onChange={(e) => setSearchVendedor(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
                       </div>
-                    )}
-                  </ScrollArea>
+                      <ScrollArea className="h-[550px]">
+                        <div className="space-y-1 p-4 pt-2">
+                          {vendedoresFiltradosPorBusca.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">
+                              {searchVendedor ? 'Nenhum vendedor encontrado' : 'Nenhum vendedor cadastrado'}
+                            </p>
+                          ) : (
+                            vendedoresFiltradosPorBusca.map((vendedor) => (
+                              <button
+                                key={vendedor.id}
+                                onClick={() => setSelectedVendedor(vendedor)}
+                                className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                                  selectedVendedor?.id === vendedor.id
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'hover:bg-muted'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={`h-2.5 w-2.5 rounded-full ${
+                                    vendedor.status_online ? 'bg-green-500' : 'bg-gray-400'
+                                  }`} />
+                                  <div className="flex-1">
+                                    <div className="font-medium">{vendedor.nome}</div>
+                                    <div className="text-xs opacity-75 mt-1">{vendedor.email}</div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </>
+                  )}
                 </CardContent>
               )}
             </Card>
 
             {/* Column 3: Card de Contato */}
-            <Card className={`col-span-${columnSpan.contato} transition-all duration-300`}>
+            <Card className={`${getColumnClass('contato')} transition-all duration-300`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-base">
                   {!collapsedColumns.contato && "Contato"}
@@ -511,7 +550,7 @@ export default function SupervisorAtendimentos() {
             </Card>
 
             {/* Column 4: Chat ao Vivo */}
-            <Card className={`col-span-${columnSpan.chat} transition-all duration-300`}>
+            <Card className={`${getColumnClass('chat')} transition-all duration-300`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-base">
                   {!collapsedColumns.chat && (
