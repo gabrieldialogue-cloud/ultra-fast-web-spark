@@ -344,7 +344,8 @@ export function ChatMessage({
         )}
 
         {attachmentUrl && isAudio && (
-          <div className="mb-2 max-w-[480px]">
+          <div className="mb-2 w-full max-w-[480px]">
+
             <div className="relative w-full overflow-hidden rounded-3xl bg-gradient-to-br from-card via-card/95 to-muted/40 border-2 border-border/50 shadow-xl transition-all hover:shadow-2xl hover:border-primary/30">
               {/* Decorative gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none"></div>
