@@ -449,13 +449,55 @@ serve(async (req) => {
                   continue;
                 }
 
-                const attachmentType = isImage ? 'image' : 'document';
+                const attachmentType = isImage ? 'image' : isAudio ? 'audio' : 'document';
+                
+                // Initial content
+                let messageContent = isAudio ? '[Áudio]' : (caption || `[${messageType}]`);
+
+                // For audio files, transcribe them in the background
+                if (isAudio) {
+                  // Convert file bytes to base64 for transcription
+                  const base64Audio = btoa(String.fromCharCode(...fileBytes));
+                  
+                  // Transcribe audio asynchronously without blocking
+                  (async () => {
+                    try {
+                      console.log('Starting audio transcription...');
+                      const transcribeResponse = await fetch(`${supabaseUrl}/functions/v1/transcribe-audio`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${supabaseKey}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ audio: base64Audio }),
+                      });
+
+                      if (transcribeResponse.ok) {
+                        const { text } = await transcribeResponse.json();
+                        console.log('Audio transcribed successfully:', text);
+                        
+                        // Update message with transcription
+                        if (text) {
+                          await supabase
+                            .from('mensagens')
+                            .update({ conteudo: text })
+                            .eq('attachment_url', publicUrl);
+                          console.log('Message updated with transcription');
+                        }
+                      } else {
+                        console.error('Transcription failed:', await transcribeResponse.text());
+                      }
+                    } catch (err) {
+                      console.error('Error transcribing audio:', err);
+                    }
+                  })();
+                }
 
                 const { data: novaMensagem, error: mensagemError } = await supabase
                   .from('mensagens')
                   .insert({
                     atendimento_id: atendimento.id,
-                    conteudo: caption,
+                    conteudo: messageContent,
                     remetente_tipo: 'cliente',
                     remetente_id: null,
                     created_at: timestamp,

@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.whatsapp-send]
 verify_jwt = true
 
+[functions.transcribe-audio]
+verify_jwt = true
+
 [functions.create-vendedor]
 verify_jwt = true
 

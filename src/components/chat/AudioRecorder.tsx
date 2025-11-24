@@ -1,7 +1,9 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square, Loader2 } from "lucide-react";
+import { Mic, Square, Loader2, Send, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AudioWaveform } from "./AudioWaveform";
+import { Card } from "@/components/ui/card";
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioBlob: Blob) => Promise<void>;
@@ -11,6 +13,7 @@ interface AudioRecorderProps {
 export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [audioPreview, setAudioPreview] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
@@ -45,19 +48,8 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
         stream.getTracks().forEach(track => track.stop());
 
         if (audioBlob.size > 0) {
-          setIsSending(true);
-          try {
-            await onAudioRecorded(audioBlob);
-          } catch (error) {
-            console.error("Erro ao enviar áudio:", error);
-            toast({
-              title: "Erro ao enviar áudio",
-              description: "Não foi possível enviar o áudio gravado.",
-              variant: "destructive",
-            });
-          } finally {
-            setIsSending(false);
-          }
+          // Show preview instead of sending immediately
+          setAudioPreview(audioBlob);
         }
       };
 
@@ -79,6 +71,77 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
       setIsRecording(false);
     }
   };
+
+  const handleSend = async () => {
+    if (!audioPreview) return;
+    
+    setIsSending(true);
+    try {
+      await onAudioRecorded(audioPreview);
+      setAudioPreview(null);
+    } catch (error) {
+      console.error("Erro ao enviar áudio:", error);
+      toast({
+        title: "Erro ao enviar áudio",
+        description: "Não foi possível enviar o áudio gravado.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setAudioPreview(null);
+  };
+
+  // Show preview with waveform
+  if (audioPreview) {
+    return (
+      <Card className="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:w-96 p-4 shadow-lg z-50 bg-card border-border">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Preview do Áudio</p>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleCancel}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <AudioWaveform audioBlob={audioPreview} />
+          <audio controls className="w-full h-10">
+            <source src={URL.createObjectURL(audioPreview)} type="audio/webm" />
+          </audio>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSend}
+              disabled={isSending}
+              className="flex-1 bg-success hover:bg-success/90"
+            >
+              {isSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Enviar
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   if (isSending) {
     return (

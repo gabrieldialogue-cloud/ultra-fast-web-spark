@@ -2,10 +2,11 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck, Clock, Mic } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ClientAvatar } from "@/components/ui/client-avatar";
+import { Badge } from "@/components/ui/badge";
 
 interface ChatMessageProps {
   remetenteTipo: "ia" | "cliente" | "vendedor" | "supervisor";
@@ -22,6 +23,7 @@ interface ChatMessageProps {
   clientePushName?: string | null;
   clienteProfilePicture?: string | null;
   status?: "enviando" | "enviada" | "entregue" | "lida";
+  transcription?: string | null;
 }
 
 const remetenteConfig = {
@@ -65,15 +67,31 @@ export function ChatMessage({
   showSenderName = true,
   clientePushName,
   clienteProfilePicture,
-  status
+  status,
+  transcription
 }: ChatMessageProps) {
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const config = remetenteConfig[remetenteTipo];
   const Icon = config.icon;
 
   const isImage = attachmentType === 'image';
   const isDocument = attachmentType === 'document';
   const isAudio = attachmentType === 'audio';
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
+  const handleSpeedChange = () => {
+    const speeds = [1, 1.5, 2];
+    const currentIndex = speeds.indexOf(playbackRate);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    setPlaybackRate(speeds[nextIndex]);
+  };
 
   // Highlight text function
   const highlightText = (text: string, search: string) => {
@@ -171,24 +189,52 @@ export function ChatMessage({
         )}
 
         {attachmentUrl && isAudio && (
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-4 py-3.5 border-2 transition-all mb-2 max-w-[320px]",
-              remetenteTipo === "cliente" && "bg-card/80 text-card-foreground border-border",
-              remetenteTipo === "ia" && "bg-primary/10 text-primary border-primary/40",
-              remetenteTipo === "vendedor" && "bg-success/10 text-success border-success/40",
-              remetenteTipo === "supervisor" && "bg-accent/10 text-accent border-accent/40"
-            )}
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/30">
-              <Mic className="h-5 w-5" />
+          <div className="space-y-2 mb-2">
+            <div
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-4 py-3.5 border-2 transition-all max-w-[320px]",
+                remetenteTipo === "cliente" && "bg-card/80 text-card-foreground border-border",
+                remetenteTipo === "ia" && "bg-primary/10 text-primary border-primary/40",
+                remetenteTipo === "vendedor" && "bg-success/10 text-success border-success/40",
+                remetenteTipo === "supervisor" && "bg-accent/10 text-accent border-accent/40"
+              )}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/30">
+                <Mic className="h-5 w-5" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <audio ref={audioRef} controls className="w-full h-8" style={{ maxWidth: '220px' }}>
+                  <source src={attachmentUrl} type="audio/ogg" />
+                  <source src={attachmentUrl} type="audio/webm" />
+                  <source src={attachmentUrl} type="audio/mpeg" />
+                  Seu navegador não suporta o elemento de áudio.
+                </audio>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSpeedChange}
+                  className="h-6 text-xs px-2"
+                >
+                  {playbackRate}x
+                </Button>
+              </div>
             </div>
-            <audio controls className="flex-1 h-8" style={{ maxWidth: '220px' }}>
-              <source src={attachmentUrl} type="audio/ogg" />
-              <source src={attachmentUrl} type="audio/webm" />
-              <source src={attachmentUrl} type="audio/mpeg" />
-              Seu navegador não suporta o elemento de áudio.
-            </audio>
+            {transcription && (
+              <div
+                className={cn(
+                  "rounded-lg px-3 py-2 text-sm max-w-[320px] border",
+                  remetenteTipo === "cliente" && "bg-muted text-muted-foreground border-border",
+                  remetenteTipo === "ia" && "bg-primary/5 text-primary border-primary/20",
+                  remetenteTipo === "vendedor" && "bg-success/5 text-success border-success/20",
+                  remetenteTipo === "supervisor" && "bg-accent/5 text-accent border-accent/20"
+                )}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs">Transcrição</Badge>
+                </div>
+                <p className="text-xs leading-relaxed">{transcription}</p>
+              </div>
+            )}
           </div>
         )}
 
