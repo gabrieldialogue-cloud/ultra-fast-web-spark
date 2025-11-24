@@ -715,10 +715,10 @@ export default function SupervisorAtendimentos() {
                               {atendimentosDoVendedor.map((atendimento) => {
                                 const unreadCount = getUnreadCountForAtendimento(atendimento);
                                 return (
-                                  <button
+                                   <button
                                     key={atendimento.id}
                                     onClick={() => setSelectedAtendimento(atendimento)}
-                                    className={`w-full text-left px-2.5 py-2 rounded-md transition-all duration-200 relative ${
+                                    className={`w-full text-left px-3 py-2.5 rounded-md transition-all duration-200 relative ${
                                       selectedAtendimento?.id === atendimento.id 
                                         ? 'border border-primary shadow-sm bg-primary/5' 
                                         : 'border border-border hover:border-primary/30'
@@ -729,26 +729,41 @@ export default function SupervisorAtendimentos() {
                                         {unreadCount}
                                       </div>
                                     )}
-                                    <div className="flex items-start justify-between mb-1">
+                                    <div className="flex items-start justify-between mb-1.5">
                                       <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-xs truncate">
+                                        <div className="font-semibold text-sm truncate">
                                           {atendimento.clientes?.nome || 'Cliente'}
                                         </div>
                                       {atendimento.clientes?.telefone && (
-                                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                                          <Phone className="h-2.5 w-2.5" />
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                                          <Phone className="h-3 w-3" />
                                           <span>{atendimento.clientes.telefone}</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              navigator.clipboard.writeText(atendimento.clientes?.telefone || '');
+                                              const button = e.currentTarget;
+                                              button.textContent = '✓';
+                                              setTimeout(() => {
+                                                button.textContent = '📋';
+                                              }, 1500);
+                                            }}
+                                            className="ml-1 text-xs hover:text-primary transition-colors"
+                                            title="Copiar telefone"
+                                          >
+                                            📋
+                                          </button>
                                         </div>
                                       )}
                                       {atendimento.mensagens && atendimento.mensagens.length > 0 && (
-                                        <div className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
+                                        <div className="text-xs text-muted-foreground mt-1.5 line-clamp-1">
                                           {atendimento.mensagens[atendimento.mensagens.length - 1].conteudo}
                                         </div>
                                       )}
                                     </div>
                                   </div>
                                   <div className="flex items-center justify-between gap-1.5">
-                                    <p className="text-[10px] text-muted-foreground truncate flex-1">
+                                    <p className="text-xs text-muted-foreground truncate flex-1">
                                       {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                     </p>
                                     <Badge variant="outline" className="text-[10px] py-0 px-1.5">

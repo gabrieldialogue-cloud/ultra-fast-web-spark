@@ -325,9 +325,15 @@ export function ChatMessage({
       <div className={cn("flex flex-col gap-1 max-w-[75%] sm:max-w-[65%] md:max-w-[60%] overflow-hidden", config.align === "right" && "items-end")}>
         {showSenderName && (
           <div className="flex flex-col gap-0.5 mb-1">
-            {(remetenteTipo === "supervisor" || remetenteTipo === "vendedor") && (
+            {(remetenteTipo === "cliente" || remetenteTipo === "supervisor" || remetenteTipo === "vendedor") && (
               <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                {currentUserId && remeteId === currentUserId ? "Você:" : remetenteTipo === "vendedor" ? "Vendedor:" : "Supervisor:"}
+                {remetenteTipo === "cliente" 
+                  ? "Cliente:" 
+                  : currentUserId && remeteId === currentUserId 
+                  ? "Você:" 
+                  : remetenteTipo === "vendedor" 
+                  ? "Vendedor:" 
+                  : "Supervisor:"}
               </span>
             )}
             <span className="text-sm sm:text-base font-semibold text-foreground">
