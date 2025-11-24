@@ -1,105 +1,73 @@
 import { useEffect, useState, useCallback } from "react";
+import { ArrowRight } from "lucide-react";
 
 interface ConnectionArrowsProps {
   selectedMarca: string | null;
   selectedVendedor: { id: string } | null;
+  selectedCliente: { id: string } | null;
 }
 
-interface Position {
-  x: number;
-  y: number;
+interface ArrowPosition {
+  top: number;
+  left: number;
   width: number;
-  height: number;
 }
 
-interface Connection {
-  from: Position;
-  to: Position;
-  id: string;
-}
+export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedCliente }: ConnectionArrowsProps) {
+  const [marcaToVendedor, setMarcaToVendedor] = useState<ArrowPosition | null>(null);
+  const [vendedorToCliente, setVendedorToCliente] = useState<ArrowPosition | null>(null);
 
-export function ConnectionArrows({ selectedMarca, selectedVendedor }: ConnectionArrowsProps) {
-  const [connections, setConnections] = useState<Connection[]>([]);
-
-  const calculateConnections = useCallback(() => {
-    const newConnections: Connection[] = [];
-
-    // Conexões Marca -> Vendedores
-    if (selectedMarca) {
+  const calculatePositions = useCallback(() => {
+    // Seta Marca → Vendedor (apenas se ambos selecionados)
+    if (selectedMarca && selectedVendedor) {
       const marcaElement = document.querySelector(`[data-marca="${selectedMarca}"]`);
-      const vendedorElements = document.querySelectorAll(`[data-vendedor-marca="${selectedMarca}"]`);
-
-      if (marcaElement && vendedorElements.length > 0) {
-        const marcaRect = marcaElement.getBoundingClientRect();
-        const marcaPos: Position = {
-          x: marcaRect.right,
-          y: marcaRect.top + marcaRect.height / 2,
-          width: marcaRect.width,
-          height: marcaRect.height,
-        };
-
-        vendedorElements.forEach((vendedorEl, index) => {
-          const vendedorRect = vendedorEl.getBoundingClientRect();
-          const vendedorPos: Position = {
-            x: vendedorRect.left,
-            y: vendedorRect.top + vendedorRect.height / 2,
-            width: vendedorRect.width,
-            height: vendedorRect.height,
-          };
-
-          newConnections.push({
-            from: marcaPos,
-            to: vendedorPos,
-            id: `marca-vendedor-${index}`,
-          });
-        });
-      }
-    }
-
-    // Conexões Vendedor -> Clientes
-    if (selectedVendedor) {
       const vendedorElement = document.querySelector(`[data-vendedor-id="${selectedVendedor.id}"]`);
-      const clienteElements = document.querySelectorAll(`[data-cliente-vendedor="${selectedVendedor.id}"]`);
 
-      if (vendedorElement && clienteElements.length > 0) {
+      if (marcaElement && vendedorElement) {
+        const marcaRect = marcaElement.getBoundingClientRect();
         const vendedorRect = vendedorElement.getBoundingClientRect();
-        const vendedorPos: Position = {
-          x: vendedorRect.right,
-          y: vendedorRect.top + vendedorRect.height / 2,
-          width: vendedorRect.width,
-          height: vendedorRect.height,
-        };
 
-        clienteElements.forEach((clienteEl, index) => {
-          const clienteRect = clienteEl.getBoundingClientRect();
-          const clientePos: Position = {
-            x: clienteRect.left,
-            y: clienteRect.top + clienteRect.height / 2,
-            width: clienteRect.width,
-            height: clienteRect.height,
-          };
+        const top = marcaRect.top + marcaRect.height / 2 - 12;
+        const left = marcaRect.right;
+        const width = vendedorRect.left - marcaRect.right;
 
-          newConnections.push({
-            from: vendedorPos,
-            to: clientePos,
-            id: `vendedor-cliente-${index}`,
-          });
-        });
+        if (width > 0) {
+          setMarcaToVendedor({ top, left, width });
+        }
       }
+    } else {
+      setMarcaToVendedor(null);
     }
 
-    setConnections(newConnections);
-  }, [selectedMarca, selectedVendedor]);
+    // Seta Vendedor → Cliente (apenas se ambos selecionados)
+    if (selectedVendedor && selectedCliente) {
+      const vendedorElement = document.querySelector(`[data-vendedor-id="${selectedVendedor.id}"]`);
+      const clienteElement = document.querySelector(`[data-cliente-id="${selectedCliente.id}"]`);
+
+      if (vendedorElement && clienteElement) {
+        const vendedorRect = vendedorElement.getBoundingClientRect();
+        const clienteRect = clienteElement.getBoundingClientRect();
+
+        const top = vendedorRect.top + vendedorRect.height / 2 - 12;
+        const left = vendedorRect.right;
+        const width = clienteRect.left - vendedorRect.right;
+
+        if (width > 0) {
+          setVendedorToCliente({ top, left, width });
+        }
+      }
+    } else {
+      setVendedorToCliente(null);
+    }
+  }, [selectedMarca, selectedVendedor, selectedCliente]);
 
   useEffect(() => {
-    // Calcular conexões inicialmente
     const timer = setTimeout(() => {
-      calculateConnections();
-    }, 100);
+      calculatePositions();
+    }, 300);
 
-    // Recalcular em scroll e resize
     const handleUpdate = () => {
-      calculateConnections();
+      calculatePositions();
     };
 
     window.addEventListener("scroll", handleUpdate, true);
@@ -110,143 +78,60 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor }: Connection
       window.removeEventListener("scroll", handleUpdate, true);
       window.removeEventListener("resize", handleUpdate);
     };
-  }, [calculateConnections]);
+  }, [calculatePositions]);
 
-  // Recalcular quando as seleções mudarem
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      calculateConnections();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [selectedMarca, selectedVendedor, calculateConnections]);
-
-  if (connections.length === 0) return null;
-
-  const createPath = (from: Position, to: Position): string => {
-    // Adicionar pequeno offset para começar/terminar na borda dos cards
-    const startX = from.x;
-    const startY = from.y;
-    const endX = to.x;
-    const endY = to.y;
-
-    // Calcular ponto de controle para curva suave
-    const midX = (startX + endX) / 2;
-    const curve = Math.abs(endY - startY) * 0.3;
-
-    // Criar curva bezier suave
-    return `M ${startX} ${startY} C ${startX + curve} ${startY}, ${midX} ${startY}, ${midX} ${(startY + endY) / 2} S ${endX - curve} ${endY}, ${endX} ${endY}`;
-  };
+  if (!marcaToVendedor && !vendedorToCliente) return null;
 
   return (
-    <svg
-      className="fixed inset-0 pointer-events-none z-10"
-      style={{ width: "100vw", height: "100vh" }}
-    >
-      <defs>
-        <marker
-          id="arrowhead"
-          markerWidth="10"
-          markerHeight="10"
-          refX="9"
-          refY="3"
-          orient="auto"
-          markerUnits="strokeWidth"
+    <div className="fixed inset-0 pointer-events-none z-10">
+      {/* Seta Marca → Vendedor */}
+      {marcaToVendedor && (
+        <div
+          className="absolute flex items-center animate-fade-in"
+          style={{
+            top: `${marcaToVendedor.top}px`,
+            left: `${marcaToVendedor.left}px`,
+            width: `${marcaToVendedor.width}px`,
+          }}
         >
-          <path
-            d="M0,0 L0,6 L9,3 z"
-            className="fill-primary"
-          />
-        </marker>
+          <div className="flex-1 h-0.5 bg-gradient-to-r from-primary via-primary to-transparent relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-foreground to-transparent animate-shimmer" />
+          </div>
+          <ArrowRight className="h-6 w-6 text-primary animate-pulse -ml-1" />
+        </div>
+      )}
 
-        {/* Gradiente para as linhas */}
-        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" className="stop-primary/40" />
-          <stop offset="50%" className="stop-primary" />
-          <stop offset="100%" className="stop-primary/40" />
-        </linearGradient>
-      </defs>
-
-      {connections.map((connection) => (
-        <g key={connection.id}>
-          {/* Linha de fundo (glow) */}
-          <path
-            d={createPath(connection.from, connection.to)}
-            fill="none"
-            className="stroke-primary/20"
-            strokeWidth="6"
-            strokeLinecap="round"
-          />
-
-          {/* Linha principal animada */}
-          <path
-            d={createPath(connection.from, connection.to)}
-            fill="none"
-            stroke="url(#lineGradient)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            markerEnd="url(#arrowhead)"
-            className="animate-draw-line"
-            style={{
-              strokeDasharray: "1000",
-              strokeDashoffset: "1000",
-              animation: "drawLine 1.5s ease-out forwards",
-            }}
-          />
-
-          {/* Partículas animadas */}
-          <circle
-            r="4"
-            className="fill-primary animate-pulse"
-            style={{
-              offsetPath: `path('${createPath(connection.from, connection.to)}')`,
-              offsetDistance: "0%",
-              animation: "moveAlongPath 3s linear infinite",
-            }}
-          >
-            <animateMotion
-              dur="3s"
-              repeatCount="indefinite"
-              path={createPath(connection.from, connection.to)}
-            />
-          </circle>
-        </g>
-      ))}
+      {/* Seta Vendedor → Cliente */}
+      {vendedorToCliente && (
+        <div
+          className="absolute flex items-center animate-fade-in"
+          style={{
+            top: `${vendedorToCliente.top}px`,
+            left: `${vendedorToCliente.left}px`,
+            width: `${vendedorToCliente.width}px`,
+          }}
+        >
+          <div className="flex-1 h-0.5 bg-gradient-to-r from-primary via-primary to-transparent relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-foreground to-transparent animate-shimmer" />
+          </div>
+          <ArrowRight className="h-6 w-6 text-primary animate-pulse -ml-1" />
+        </div>
+      )}
 
       <style>{`
-        @keyframes drawLine {
-          to {
-            stroke-dashoffset: 0;
-          }
-        }
-
-        @keyframes moveAlongPath {
+        @keyframes shimmer {
           0% {
-            offset-distance: 0%;
-            opacity: 0;
-          }
-          10% {
-            opacity: 1;
-          }
-          90% {
-            opacity: 1;
+            transform: translateX(-100%);
           }
           100% {
-            offset-distance: 100%;
-            opacity: 0;
+            transform: translateX(100%);
           }
         }
 
-        .stop-primary\/40 {
-          stop-color: hsl(var(--primary));
-          stop-opacity: 0.4;
-        }
-
-        .stop-primary {
-          stop-color: hsl(var(--primary));
-          stop-opacity: 1;
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
         }
       `}</style>
-    </svg>
+    </div>
   );
 }

@@ -360,6 +360,7 @@ export default function SupervisorAtendimentos() {
         <ConnectionArrows
           selectedMarca={selectedMarca}
           selectedVendedor={selectedVendedor}
+          selectedCliente={selectedAtendimento ? { id: selectedAtendimento.id } : null}
         />
         
         {/* Hierarquia Visual com Setas */}
@@ -696,6 +697,7 @@ export default function SupervisorAtendimentos() {
                                 return (
                            <button
                                     key={atendimento.id}
+                                    data-cliente-id={atendimento.id}
                                     data-cliente-vendedor={selectedVendedor?.id}
                                     onClick={() => setSelectedAtendimento(atendimento)}
                                     className={`w-full text-left px-3 py-3 rounded-xl transition-all duration-300 relative overflow-hidden ${
