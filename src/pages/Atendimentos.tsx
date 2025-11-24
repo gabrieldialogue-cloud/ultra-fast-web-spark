@@ -1657,13 +1657,7 @@ export default function Atendimentos() {
                                 </div>
                               ) : (
                                 <div className="relative space-y-2 px-2 py-2">
-                                 <div className="relative space-y-2">{
-                                   // Sort to pin selected atendimento at the top
-                                   [...filteredAtendimentosVendedor].sort((a, b) => {
-                                     if (a.id === selectedAtendimentoIdVendedor) return -1;
-                                     if (b.id === selectedAtendimentoIdVendedor) return 1;
-                                     return 0;
-                                   }).map((atendimento) => {
+                                 <div className="relative space-y-2">{filteredAtendimentosVendedor.map((atendimento) => {
                                      // Get last message with attachment
                                      const lastMessageQuery = supabase
                                        .from("mensagens")
@@ -1681,28 +1675,28 @@ export default function Atendimentos() {
                                               clearUnreadCount(atendimento.id);
                                               markMessagesAsRead(atendimento.id);
                                             }}
-                                                className={`w-full text-left px-2 py-2.5 rounded-lg transition-all duration-200 hover:scale-[1.01] bg-gradient-to-b from-accent/8 to-transparent ${
+                                               className={`w-full text-left px-1.5 py-2 rounded-lg transition-all duration-200 hover:scale-[1.01] bg-gradient-to-b from-accent/8 to-transparent ${
                                                   selectedAtendimentoIdVendedor === atendimento.id 
                                                     ? 'border-2 border-primary shadow-md bg-primary/5 ring-2 ring-primary/20' 
                                                     : 'border-2 border-border hover:border-primary/30 hover:shadow-sm'
                                                 }`}
                                           >
-                                             <div className="flex items-start justify-between mb-2">
+                                             <div className="flex items-start justify-between mb-1.5">
                                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                                <ClientAvatar
                                                  name={atendimento.clientes?.push_name || atendimento.clientes?.nome || 'Cliente'}
                                                  imageUrl={atendimento.clientes?.profile_picture_url}
-                                                 className="h-10 w-10 border-2 border-accent/30 shrink-0"
+                                                 className="h-9 w-9 border border-accent/30 shrink-0"
                                                />
                                                <div className="flex-1 min-w-0 space-y-0.5">
-                                                   <div className="flex items-center gap-1.5">
-                                                     <span className="font-semibold text-xs block truncate">
+                                                   <div className="flex items-center gap-1">
+                                                     <span className="font-semibold text-[11px] block truncate">
                                                        {atendimento.clientes?.push_name || atendimento.clientes?.nome || "Cliente"}
                                                      </span>
                                                      {clientPresence[atendimento.id]?.isTyping && (
-                                                       <span className="text-[9px] text-success font-medium flex items-center gap-1 shrink-0">
-                                                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                                                         digitando...
+                                                       <span className="text-[8px] text-success font-medium flex items-center gap-0.5 shrink-0">
+                                                         <span className="inline-block h-1 w-1 rounded-full bg-success animate-pulse" />
+                                                         digitando
                                                        </span>
                                                      )}
                                                      {!clientPresence[atendimento.id]?.isTyping && clientPresence[atendimento.id]?.isOnline && (
@@ -1716,26 +1710,26 @@ export default function Atendimentos() {
                                                          navigator.clipboard.writeText(atendimento.clientes.telefone);
                                                          toast.success("Número copiado!");
                                                        }}
-                                                       className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                                                       className="flex items-center gap-0.5 text-[9px] text-muted-foreground hover:text-foreground transition-colors max-w-full"
                                                        title="Copiar número"
                                                      >
-                                                       <Phone className="h-2.5 w-2.5 shrink-0" />
+                                                       <Phone className="h-2 w-2 shrink-0" />
                                                        <span className="truncate">{atendimento.clientes.telefone}</span>
-                                                       <Copy className="h-2 w-2 shrink-0" />
+                                                       <Copy className="h-1.5 w-1.5 shrink-0" />
                                                      </button>
                                                    )}
                                                   {lastMessages[atendimento.id] ? (
-                                                    <div className="flex items-start gap-1 mt-0.5">
+                                                    <div className="flex items-start gap-0.5 mt-0.5">
                                                       {lastMessages[atendimento.id].attachmentType && (
                                                         lastMessages[atendimento.id].attachmentType === 'image' ? (
-                                                          <ImageIcon className="h-2.5 w-2.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                          <ImageIcon className="h-2 w-2 text-muted-foreground shrink-0 mt-0.5" />
                                                         ) : lastMessages[atendimento.id].attachmentType === 'audio' ? (
-                                                          <Mic className="h-2.5 w-2.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                          <Mic className="h-2 w-2 text-muted-foreground shrink-0 mt-0.5" />
                                                         ) : (
-                                                          <File className="h-2.5 w-2.5 text-muted-foreground shrink-0 mt-0.5" />
+                                                          <File className="h-2 w-2 text-muted-foreground shrink-0 mt-0.5" />
                                                         )
                                                       )}
-                                                      <span className="text-[10px] text-muted-foreground line-clamp-1 break-words flex-1">
+                                                      <span className="text-[9px] text-muted-foreground line-clamp-1 break-words flex-1">
                                                         {lastMessages[atendimento.id].remetenteTipo === 'vendedor' && (
                                                           <span className="font-medium">Você: </span>
                                                         )}
@@ -1744,57 +1738,57 @@ export default function Atendimentos() {
                                                             ? 'Imagem' 
                                                             : lastMessages[atendimento.id].attachmentType === 'audio'
                                                               ? 'Áudio'
-                                                              : 'Documento'
-                                                          : (lastMessages[atendimento.id].conteudo?.substring(0, 40) || 'Mensagem') + 
-                                                            (lastMessages[atendimento.id].conteudo?.length > 40 ? '...' : '')}
+                                                              : 'Doc'
+                                                          : (lastMessages[atendimento.id].conteudo?.substring(0, 30) || 'Msg') + 
+                                                            (lastMessages[atendimento.id].conteudo?.length > 30 ? '...' : '')}
                                                       </span>
                                                     </div>
                                                   ) : (
-                                                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                                                      Sem mensagens ainda
+                                                    <span className="text-[9px] text-muted-foreground mt-0.5 block">
+                                                      Sem mensagens
                                                     </span>
                                                   )}
                                                </div>
                                             </div>
-                                             <div className="flex flex-col items-end gap-0.5 shrink-0">
-                                               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                             <div className="flex flex-col items-end gap-0.5 shrink-0 ml-1">
+                                               <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
                                                  {unreadCountsVendedor[atendimento.id] > 0 && (
-                                                   <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                                                   <Badge variant="destructive" className="text-[8px] px-0.5 py-0 h-3.5 min-w-[14px]">
                                                      {unreadCountsVendedor[atendimento.id]}
                                                    </Badge>
                                                  )}
-                                                 <span className="whitespace-nowrap text-[10px]">
+                                                 <span className="whitespace-nowrap text-[9px]">
                                                    {format(new Date(lastMessages[atendimento.id]?.createdAt || atendimento.created_at), "dd/MM HH:mm", { locale: ptBR })}
                                                  </span>
                                                </div>
                                                {lastMessages[atendimento.id]?.remetenteTipo === 'vendedor' && (
                                                  <span className="flex items-center">
                                                    {lastMessages[atendimento.id].readAt ? (
-                                                     <CheckCheck className="h-2.5 w-2.5 text-success" />
+                                                     <CheckCheck className="h-2 w-2 text-success" />
                                                    ) : lastMessages[atendimento.id].deliveredAt ? (
-                                                     <CheckCheck className="h-2.5 w-2.5 opacity-60" />
+                                                     <CheckCheck className="h-2 w-2 opacity-60" />
                                                    ) : (
-                                                     <Check className="h-2.5 w-2.5 opacity-60" />
+                                                     <Check className="h-2 w-2 opacity-60" />
                                                    )}
                                                  </span>
                                                )}
                                             </div>
                                           </div>
-                                           <div className="flex items-center justify-between gap-2">
-                                             <p className="text-[10px] text-muted-foreground truncate flex-1">
+                                           <div className="flex items-center justify-between gap-1.5">
+                                             <p className="text-[9px] text-muted-foreground truncate flex-1 min-w-0">
                                                {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                              </p>
-                                             <div className="flex items-center gap-1 shrink-0">
+                                             <div className="flex items-center gap-0.5 shrink-0">
                                                {getStatusBadge(atendimento.status)}
                                                {lastMessages[atendimento.id]?.attachmentCount > 0 && (
-                                                 <Badge variant="outline" className="text-[9px] gap-0.5 px-1 py-0 h-4">
-                                                   <Paperclip className="h-2.5 w-2.5" />
+                                                 <Badge variant="outline" className="text-[8px] gap-0.5 px-0.5 py-0 h-3.5">
+                                                   <Paperclip className="h-2 w-2" />
                                                    {lastMessages[atendimento.id].attachmentCount}
                                                  </Badge>
                                                )}
                                              </div>
                                              {!clientPresence[atendimento.id]?.isTyping && !clientPresence[atendimento.id]?.isOnline && clientPresence[atendimento.id]?.lastSeenAt && (
-                                               <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                               <span className="text-[8px] text-muted-foreground whitespace-nowrap">
                                                  visto {(() => {
                                                    const lastSeen = new Date(clientPresence[atendimento.id].lastSeenAt!);
                                                    const diffInSeconds = Math.floor((now - lastSeen.getTime()) / 1000);
