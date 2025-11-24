@@ -53,8 +53,8 @@ export function LiveAudioVisualizer({ stream, isRecording }: LiveAudioVisualizer
       const frequencyData = new Uint8Array(analyserRef.current.frequencyBinCount);
       analyserRef.current.getByteFrequencyData(frequencyData);
 
-      // Clear canvas with darker background
-      canvasContext.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      // Clear canvas with light gray background
+      canvasContext.fillStyle = 'rgba(240, 240, 245, 0.3)';
       canvasContext.fillRect(0, 0, canvas.width, canvas.height);
 
       const barWidth = canvas.width / barCount;
@@ -67,7 +67,7 @@ export function LiveAudioVisualizer({ stream, isRecording }: LiveAudioVisualizer
       for (let i = 0; i < barCount; i++) {
         // Average multiple frequency bins for smoother animation
         const dataIndex = Math.floor((i * frequencyData.length) / barCount);
-        const targetHeight = (frequencyData[dataIndex] / 255) * canvas.height * 0.8;
+        const targetHeight = (frequencyData[dataIndex] / 255) * canvas.height; // 100% height
         
         // Smooth transition
         const smoothing = 0.3;
@@ -98,8 +98,8 @@ export function LiveAudioVisualizer({ stream, isRecording }: LiveAudioVisualizer
         const x = i * barWidth + barSpacing / 2;
         const y = canvas.height - barHeight;
         const width = barWidth - barSpacing;
-        const height = Math.max(barHeight, 4); // Minimum height
-        const radius = 3;
+        const height = Math.max(barHeight, 8); // Minimum height increased
+        const radius = 4;
         
         // Add glow effect when volume is high
         if (volumeNormalized > 0.3) {
