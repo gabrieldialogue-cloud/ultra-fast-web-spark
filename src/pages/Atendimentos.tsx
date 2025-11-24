@@ -58,6 +58,7 @@ export default function Atendimentos() {
   const [vendedorId, setVendedorId] = useState<string | null>(null);
   const [vendedorNome, setVendedorNome] = useState<string>("");
   const [atendimentosVendedor, setAtendimentosVendedor] = useState<any[]>([]);
+  const [loadingVendedor, setLoadingVendedor] = useState(false);
   const [selectedAtendimentoIdVendedor, setSelectedAtendimentoIdVendedor] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -443,44 +444,70 @@ export default function Atendimentos() {
   const fetchAtendimentosVendedor = async () => {
     if (!vendedorId) return;
 
-    const { data } = await supabase
-      .from("atendimentos")
-      .select(`
-        id,
-        marca_veiculo,
-        modelo_veiculo,
-        status,
-        created_at,
-        clientes (nome, telefone, push_name, profile_picture_url)
-      `)
-      .eq('vendedor_fixo_id', vendedorId)
-      .neq('status', 'encerrado');
-    
-    if (data && data.length > 0) {
-      // Fetch last message for each atendimento to sort by most recent
-      const atendimentosComUltimaMensagem = await Promise.all(
-        data.map(async (atendimento) => {
-          const { data: ultimaMensagem } = await supabase
-            .from('mensagens')
-            .select('created_at')
-            .eq('atendimento_id', atendimento.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-          
-          return {
-            ...atendimento,
-            ultima_mensagem_at: ultimaMensagem?.created_at || atendimento.created_at
-          };
-        })
-      );
+    setLoadingVendedor(true);
+    try {
+      const { data, error } = await supabase
+        .from("atendimentos")
+        .select(`
+          id,
+          marca_veiculo,
+          modelo_veiculo,
+          status,
+          created_at,
+          clientes (nome, telefone, push_name, profile_picture_url)
+        `)
+        .eq('vendedor_fixo_id', vendedorId)
+        .neq('status', 'encerrado');
+      
+      if (error) {
+        console.error('Erro ao buscar atendimentos:', error);
+        toast.error('Erro ao carregar atendimentos');
+        setAtendimentosVendedor([]);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        // Fetch last message for each atendimento to sort by most recent
+        const atendimentosComUltimaMensagem = await Promise.all(
+          data.map(async (atendimento) => {
+            try {
+              const { data: ultimaMensagem } = await supabase
+                .from('mensagens')
+                .select('created_at')
+                .eq('atendimento_id', atendimento.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+              
+              return {
+                ...atendimento,
+                ultima_mensagem_at: ultimaMensagem?.created_at || atendimento.created_at
+              };
+            } catch (error) {
+              console.error('Erro ao buscar última mensagem:', error);
+              return {
+                ...atendimento,
+                ultima_mensagem_at: atendimento.created_at
+              };
+            }
+          })
+        );
 
-      // Sort by most recent message
-      const sorted = atendimentosComUltimaMensagem.sort((a, b) => 
-        new Date(b.ultima_mensagem_at).getTime() - new Date(a.ultima_mensagem_at).getTime()
-      );
+        // Sort by most recent message
+        const sorted = atendimentosComUltimaMensagem.sort((a, b) => 
+          new Date(b.ultima_mensagem_at).getTime() - new Date(a.ultima_mensagem_at).getTime()
+        );
 
-      setAtendimentosVendedor(sorted);
+        setAtendimentosVendedor(sorted);
+      } else {
+        setAtendimentosVendedor([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar atendimentos:', error);
+      toast.error('Erro ao carregar atendimentos');
+      setAtendimentosVendedor([]);
+    } finally {
+      setLoadingVendedor(false);
     }
   };
 
@@ -1466,7 +1493,7 @@ export default function Atendimentos() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 px-4 py-2 text-lg font-bold">
-                          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : `${filteredAtendimentosVendedor.length} ativas`}
+                          {loadingVendedor ? <Loader2 className="h-4 w-4 animate-spin" /> : `${filteredAtendimentosVendedor.length} ativas`}
                         </Badge>
                         <Badge className="bg-gradient-to-r from-primary to-secondary text-white px-4 py-1">
                           Chat ao Vivo
