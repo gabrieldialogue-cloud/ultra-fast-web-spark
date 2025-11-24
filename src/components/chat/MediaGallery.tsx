@@ -79,23 +79,25 @@ export function MediaGallery({ mensagens, onLoadMore, hasMoreMedia = false }: Me
                 <ImageIcon className="h-4 w-4" />
                 Imagens ({images.length})
               </h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {images.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => setSelectedMedia(item)}
-                    className="relative aspect-square rounded-lg overflow-hidden border border-border hover:border-primary transition-colors group"
+                    className="relative aspect-square rounded-xl overflow-hidden border-2 border-border hover:border-primary transition-all group hover:scale-[1.02] shadow-md hover:shadow-xl"
                   >
                     <img
                       src={item.url}
                       alt="Mídia compartilhada"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                      <Download className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                      <div className="bg-white/90 dark:bg-black/90 p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Download className="h-5 w-5 text-foreground" />
+                      </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                      <p className="text-[10px] text-white font-medium">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5">
+                      <p className="text-[10px] text-white font-semibold">
                         {format(new Date(item.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                       </p>
                     </div>
@@ -116,22 +118,25 @@ export function MediaGallery({ mensagens, onLoadMore, hasMoreMedia = false }: Me
                 {documents.map((item) => {
                   const fileName = item.filename || item.url.split('/').pop() || 'Documento';
                   const decodedName = decodeURIComponent(fileName);
+                  const ext = decodedName.split('.').pop()?.toUpperCase() || 'FILE';
                   return (
                     <a
                       key={item.id}
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent/50 transition-colors"
+                      className="flex items-center gap-3 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-accent/10 transition-all hover:scale-[1.01] hover:shadow-lg"
                     >
-                      <File className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+                        <File className="h-6 w-6 text-primary" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{decodedName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.remetenteTipo === 'vendedor' ? 'Você' : 'Cliente'} • {format(new Date(item.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        <p className="text-sm font-semibold truncate">{decodedName}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {item.remetenteTipo === 'vendedor' ? 'Você' : 'Cliente'} • {format(new Date(item.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} • {ext}
                         </p>
                       </div>
-                      <Download className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Download className="h-5 w-5 text-muted-foreground shrink-0" />
                     </a>
                   );
                 })}

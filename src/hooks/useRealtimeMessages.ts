@@ -38,6 +38,28 @@ export function useRealtimeMessages({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Função para marcar mensagens como lidas
+  const markMessagesAsRead = useCallback(async (atendId: string) => {
+    if (!vendedorId) return;
+    
+    const { data: unreadMessages } = await supabase
+      .from('mensagens')
+      .select('id')
+      .eq('atendimento_id', atendId)
+      .in('remetente_tipo', ['cliente', 'ia'])
+      .is('read_at', null);
+    
+    if (unreadMessages && unreadMessages.length > 0) {
+      const ids = unreadMessages.map(m => m.id);
+      const now = new Date().toISOString();
+      
+      await supabase
+        .from('mensagens')
+        .update({ read_at: now, read_by_id: vendedorId })
+        .in('id', ids);
+    }
+  }, [vendedorId]);
+
   // Função para buscar mensagens do banco (últimas 10)
   const fetchMessages = useCallback(async (atendId: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -82,24 +104,7 @@ export function useRealtimeMessages({
         setHasMoreMessages((count || 0) > 10);
         setOldestMessageDate(sortedData.length > 0 ? sortedData[0].created_at : null);
         
-        // Marcar como lidas as mensagens de clientes/IA não lidas
-        if (vendedorId) {
-          const unreadMessages = sortedData.filter(
-            msg => 
-              (msg.remetente_tipo === 'cliente' || msg.remetente_tipo === 'ia') && 
-              !msg.read_at
-          );
-          
-          if (unreadMessages.length > 0) {
-            const ids = unreadMessages.map(m => m.id);
-            const now = new Date().toISOString();
-            
-            await supabase
-              .from('mensagens')
-              .update({ read_at: now, read_by_id: vendedorId })
-              .in('id', ids);
-          }
-        }
+        // NÃO marcar como lidas automaticamente - será feito manualmente via clearUnreadCount
       }
     } catch (error) {
       console.error('❌ Erro ao buscar mensagens:', error);
@@ -276,6 +281,7 @@ export function useRealtimeMessages({
     updateMessage,
     removeOptimisticMessage,
     loadMoreMessages,
-    hasMoreMessages
+    hasMoreMessages,
+    markMessagesAsRead
   };
 }

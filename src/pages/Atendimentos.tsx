@@ -25,6 +25,7 @@ import { compressImage, shouldCompress } from "@/lib/imageCompression";
 import { useTypingBroadcast } from "@/hooks/useTypingBroadcast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
+import { useLastMessages } from "@/hooks/useLastMessages";
 
 type DetailType = 
   | "ia_respondendo"
@@ -78,7 +79,8 @@ export default function Atendimentos() {
     updateMessage,
     removeOptimisticMessage,
     loadMoreMessages,
-    hasMoreMessages
+    hasMoreMessages,
+    markMessagesAsRead
   } = useRealtimeMessages({
     atendimentoId: selectedAtendimentoIdVendedor,
     vendedorId,
@@ -89,6 +91,12 @@ export default function Atendimentos() {
   const { unreadCounts: unreadCountsVendedor, clearUnreadCount } = useUnreadCounts({
     atendimentos: atendimentosVendedor,
     vendedorId,
+    enabled: !isSupervisor
+  });
+
+  // Hook para últimas mensagens
+  const { lastMessages } = useLastMessages({
+    atendimentos: atendimentosVendedor,
     enabled: !isSupervisor
   });
 
@@ -1361,11 +1369,14 @@ export default function Atendimentos() {
                                        .limit(1);
                                      
                                      return (
-                                         <button
+                                        <button
                                           key={atendimento.id}
                                            onClick={() => {
                                              setSelectedAtendimentoIdVendedor(atendimento.id);
                                              clearUnreadCount(atendimento.id);
+                                             if (selectedAtendimentoIdVendedor) {
+                                               markMessagesAsRead(atendimento.id);
+                                             }
                                            }}
                                            className={`w-full text-left p-4 rounded-lg transition-all duration-300 hover:scale-[1.02] ${
                                              selectedAtendimentoIdVendedor === atendimento.id 
@@ -1396,13 +1407,27 @@ export default function Atendimentos() {
                                                  <User className="h-5 w-5 text-accent" />
                                                </div>
                                              )}
-                                             <div>
+                                             <div className="flex-1">
                                                <span className="font-semibold text-sm block">
                                                  {atendimento.clientes?.push_name || atendimento.clientes?.nome || "Cliente"}
                                                </span>
-                                               <span className="text-xs text-muted-foreground">
-                                                 {atendimento.clientes?.telefone}
-                                               </span>
+                                               {lastMessages[atendimento.id] && (
+                                                 <div className="flex items-center gap-1.5 mt-1">
+                                                   {lastMessages[atendimento.id].attachmentType === 'image' && (
+                                                     <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                                                   )}
+                                                   {lastMessages[atendimento.id].attachmentType === 'document' && (
+                                                     <File className="h-3 w-3 text-muted-foreground shrink-0" />
+                                                   )}
+                                                   <span className="text-xs text-muted-foreground line-clamp-1">
+                                                     {lastMessages[atendimento.id].attachmentType 
+                                                       ? lastMessages[atendimento.id].attachmentType === 'image' 
+                                                         ? 'Imagem' 
+                                                         : 'Documento'
+                                                       : lastMessages[atendimento.id].conteudo || 'Sem mensagens'}
+                                                   </span>
+                                                 </div>
+                                               )}
                                              </div>
                                            </div>
                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1419,7 +1444,15 @@ export default function Atendimentos() {
                                           {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                         </p>
                                         <div className="flex items-center justify-between">
-                                          {getStatusBadge(atendimento.status)}
+                                          <div className="flex items-center gap-2">
+                                            {getStatusBadge(atendimento.status)}
+                                            {lastMessages[atendimento.id]?.attachmentCount > 0 && (
+                                              <Badge variant="outline" className="text-xs gap-1">
+                                                <Paperclip className="h-3 w-3" />
+                                                {lastMessages[atendimento.id].attachmentCount}
+                                              </Badge>
+                                            )}
+                                          </div>
                                         </div>
                                       </button>
                                     );

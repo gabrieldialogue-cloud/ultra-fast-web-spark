@@ -164,16 +164,18 @@ export function ChatMessage({
         
         {attachmentUrl && isImage && (
           <div 
-            className="rounded-xl overflow-hidden border border-border max-w-[200px] sm:max-w-[250px] mb-2 cursor-pointer group relative"
+            className="rounded-xl overflow-hidden border border-border max-w-[280px] sm:max-w-[320px] mb-2 cursor-pointer group relative shadow-lg hover:shadow-xl transition-all"
             onClick={() => setShowImageDialog(true)}
           >
             <img 
               src={attachmentUrl} 
               alt="Anexo"
-              className="w-full h-auto group-hover:opacity-90 transition-opacity"
+              className="w-full h-auto max-h-[400px] object-cover group-hover:scale-105 transition-transform duration-300"
             />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-              <Download className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+              <div className="bg-white/90 dark:bg-black/90 p-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <Download className="h-6 w-6 text-foreground" />
+              </div>
             </div>
           </div>
         )}
@@ -181,11 +183,11 @@ export function ChatMessage({
         {attachmentUrl && isDocument && fileInfo && (
           <div
             className={cn(
-              "flex items-center gap-3 rounded-lg px-4 py-3 border transition-colors mb-2 cursor-pointer hover:bg-accent/10",
-              remetenteTipo === "cliente" && "bg-card text-card-foreground border-border",
-              remetenteTipo === "ia" && "bg-primary text-primary-foreground border-primary/40",
-              remetenteTipo === "vendedor" && "bg-success text-success-foreground border-success/40",
-              remetenteTipo === "supervisor" && "bg-accent text-accent-foreground border-accent/40"
+              "flex items-center gap-3 rounded-xl px-4 py-3.5 border-2 transition-all mb-2 cursor-pointer hover:scale-[1.02] hover:shadow-lg max-w-[320px]",
+              remetenteTipo === "cliente" && "bg-card/80 text-card-foreground border-border hover:border-primary/50",
+              remetenteTipo === "ia" && "bg-primary/10 text-primary border-primary/40 hover:border-primary",
+              remetenteTipo === "vendedor" && "bg-success/10 text-success border-success/40 hover:border-success",
+              remetenteTipo === "supervisor" && "bg-accent/10 text-accent border-accent/40 hover:border-accent"
             )}
             onClick={() => {
               // Create a temporary link to download the file
@@ -198,14 +200,16 @@ export function ChatMessage({
               document.body.removeChild(link);
             }}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-background/20">
-              <DocumentIcon className="h-5 w-5" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-background/30">
+              <DocumentIcon className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{fileInfo.displayName}</p>
-              <p className="text-xs opacity-75">Clique para baixar</p>
+              <p className="text-sm font-semibold truncate">{fileInfo.displayName}</p>
+              <p className="text-xs opacity-80 flex items-center gap-1 mt-0.5">
+                <Download className="h-3 w-3" />
+                Clique para baixar • {fileInfo.extension}
+              </p>
             </div>
-            <Download className="h-5 w-5 shrink-0" />
           </div>
         )}
         
