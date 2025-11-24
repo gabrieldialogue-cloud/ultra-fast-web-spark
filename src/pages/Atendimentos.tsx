@@ -529,7 +529,7 @@ export default function Atendimentos() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Auto scroll to bottom quando um novo atendimento é selecionado
+  // Auto scroll to bottom quando um novo atendimento é selecionado - apenas o scroll do chat
   useEffect(() => {
     if (
       !isSupervisor &&
@@ -539,12 +539,15 @@ export default function Atendimentos() {
       // Atualiza a referência primeiro
       prevSelectedAtendimentoId.current = selectedAtendimentoIdVendedor;
       
-      // Forçar scroll para o final após o DOM atualizar
+      // Forçar scroll apenas dentro da área de mensagens (scrollRef), não da página
       setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
+        if (scrollRef.current) {
+          const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollElement) {
+            scrollElement.scrollTop = scrollElement.scrollHeight;
+          }
         }
-      }, 100);
+      }, 150);
     }
   }, [selectedAtendimentoIdVendedor, isSupervisor]);
 
@@ -1654,7 +1657,7 @@ export default function Atendimentos() {
                                   <p className="text-xs">Nenhum atendimento encontrado</p>
                                 </div>
                               ) : (
-                                <div className="relative space-y-2 px-2 py-2">
+                                <div className="relative space-y-2 px-1.5 py-2">
                                  <div className="relative space-y-2">{filteredAtendimentosVendedor.map((atendimento) => {
                                      // Get last message with attachment
                                      const lastMessageQuery = supabase
@@ -1673,14 +1676,14 @@ export default function Atendimentos() {
                                               clearUnreadCount(atendimento.id);
                                               markMessagesAsRead(atendimento.id);
                                             }}
-                                               className={`w-full text-left px-1.5 py-3 rounded-lg transition-all duration-200 hover:scale-[1.01] bg-gradient-to-b from-accent/8 to-transparent ${
+                                               className={`w-full text-left px-1 py-3 rounded-lg transition-all duration-200 hover:scale-[1.01] bg-gradient-to-b from-accent/8 to-transparent ${
                                                   selectedAtendimentoIdVendedor === atendimento.id 
                                                     ? 'border-2 border-primary shadow-md bg-primary/5 ring-2 ring-primary/20' 
                                                     : 'border-2 border-border hover:border-primary/30 hover:shadow-sm'
                                                 }`}
                                           >
                                              <div className="flex items-start justify-between mb-2">
-                                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                             <div className="flex items-center gap-1 flex-1 min-w-0">
                                                <ClientAvatar
                                                  name={atendimento.clientes?.push_name || atendimento.clientes?.nome || 'Cliente'}
                                                  imageUrl={atendimento.clientes?.profile_picture_url}
@@ -1748,7 +1751,7 @@ export default function Atendimentos() {
                                                   )}
                                                </div>
                                             </div>
-                                             <div className="flex flex-col items-end gap-0.5 shrink-0 ml-1">
+                                             <div className="flex flex-col items-end gap-0.5 shrink-0 ml-0.5">
                                                <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                                                  {unreadCountsVendedor[atendimento.id] > 0 && (
                                                    <Badge variant="destructive" className="text-[9px] px-0.5 py-0 h-4 min-w-[16px]">
@@ -1772,7 +1775,7 @@ export default function Atendimentos() {
                                                )}
                                             </div>
                                           </div>
-                                           <div className="flex items-center justify-between gap-1.5">
+                                           <div className="flex items-center justify-between gap-1">
                                              <p className="text-[10px] text-muted-foreground truncate flex-1 min-w-0">
                                                {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                              </p>
