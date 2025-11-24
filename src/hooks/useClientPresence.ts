@@ -39,9 +39,26 @@ export function useClientPresence({ atendimentos, enabled }: UseClientPresencePr
 
         presenceMap[atendimento.id] = {
           atendimentoId: atendimento.id,
-          isOnline: isRecentlyActive || false,
+          isOnline: !!isRecentlyActive,
           isTyping: false
         };
+
+        // Se estiver marcado como online por atividade recente, agenda o timeout para desligar
+        if (isRecentlyActive) {
+          if (onlineTimeouts.current[atendimento.id]) {
+            clearTimeout(onlineTimeouts.current[atendimento.id]);
+          }
+
+          onlineTimeouts.current[atendimento.id] = setTimeout(() => {
+            setClientPresence(prev => ({
+              ...prev,
+              [atendimento.id]: {
+                ...prev[atendimento.id],
+                isOnline: false,
+              },
+            }));
+          }, 60 * 1000);
+        }
       }
       
       setClientPresence(presenceMap);
