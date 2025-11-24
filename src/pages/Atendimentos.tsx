@@ -73,6 +73,7 @@ export default function Atendimentos() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const prevSelectedAtendimentoId = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   // Atualiza "agora" a cada minuto para recalcular o "visto por último"
   useEffect(() => {
@@ -517,8 +518,13 @@ export default function Atendimentos() {
   useEffect(() => {
     if (!isSupervisor && mensagensVendedor.length > 0 && !isLoadingOlder && !suppressAutoScroll) {
       const lastMessage = mensagensVendedor[mensagensVendedor.length - 1];
-      // Scroll suave apenas para mensagens novas (não para carregamento inicial)
-      if (lastMessage && lastMessage.remetente_tipo !== 'vendedor') {
+
+      // Só considerar como nova mensagem se o ID mudou
+      if (!lastMessage || lastMessage.id === lastMessageIdRef.current) return;
+      lastMessageIdRef.current = lastMessage.id;
+
+      // Scroll suave apenas para mensagens novas que não são do vendedor
+      if (lastMessage.remetente_tipo !== 'vendedor') {
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 100);
