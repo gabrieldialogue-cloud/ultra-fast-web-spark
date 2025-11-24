@@ -501,7 +501,7 @@ export default function SupervisorAtendimentos() {
                         />
                       </div>
                     </div>
-                    <ScrollArea className="h-[550px]">
+                    <ScrollArea className="h-[calc(100vh-260px)]">
                       <div className="space-y-1 p-4 pt-2">
                         {marcasFiltradas.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-8">
@@ -596,7 +596,7 @@ export default function SupervisorAtendimentos() {
                             />
                           </div>
                         </div>
-                        <ScrollArea className="h-[550px]">
+                        <ScrollArea className="h-[calc(100vh-260px)]">
                           <div className="space-y-1 p-4 pt-2">
                             {vendedoresFiltradosPorBusca.length === 0 ? (
                               <p className="text-sm text-muted-foreground text-center py-8">
