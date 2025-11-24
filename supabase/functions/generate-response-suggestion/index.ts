@@ -16,7 +16,31 @@ serve(async (req) => {
   try {
     const { clientMessage, conversationContext } = await req.json();
 
-    console.log('Generating response for client message:', clientMessage);
+    console.log('🔍 Requisição recebida:', { 
+      clientMessage, 
+      contextLength: conversationContext?.length || 0 
+    });
+
+    if (!openAIApiKey) {
+      throw new Error('OPENAI_API_KEY não configurada');
+    }
+
+    const messages = [
+      { 
+        role: 'system', 
+        content: 'Você é um assistente de vendas de autopeças brasileiro. Gere respostas CURTAS (máximo 2-3 frases), profissionais e amigáveis em português do Brasil. Seja direto e objetivo.' 
+      },
+      ...(conversationContext || []),
+      { 
+        role: 'user', 
+        content: `Cliente disse: "${clientMessage}"\n\nGere UMA resposta CURTA e apropriada para o vendedor enviar ao cliente.` 
+      }
+    ];
+
+    console.log('📤 Enviando para OpenAI:', {
+      model: 'gpt-4o-mini',
+      messageCount: messages.length
+    });
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -25,39 +49,44 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'Você é um assistente de vendas de autopeças. Seu trabalho é ajudar vendedores a responder clientes de forma profissional, clara e prestativa. Gere respostas curtas, diretas e amigáveis em português do Brasil. Mantenha um tom comercial mas acolhedor.' 
-          },
-          ...(conversationContext || []),
-          { 
-            role: 'user', 
-            content: `Cliente disse: "${clientMessage}"\n\nGere uma resposta apropriada para o vendedor enviar.` 
-          }
-        ],
-        max_completion_tokens: 200,
+        model: 'gpt-4o-mini',
+        messages: messages,
+        max_tokens: 150,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error('❌ OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const suggestedResponse = data.choices[0].message.content;
+    console.log('📥 Resposta da OpenAI:', JSON.stringify(data, null, 2));
 
-    console.log('Generated response:', suggestedResponse);
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenAI retornou resposta vazia');
+    }
+
+    const suggestedResponse = data.choices[0].message?.content?.trim();
+
+    if (!suggestedResponse) {
+      console.error('⚠️ Conteúdo vazio na resposta:', data);
+      throw new Error('Resposta da IA está vazia');
+    }
+
+    console.log('✅ Sugestão gerada:', suggestedResponse);
 
     return new Response(JSON.stringify({ suggestedResponse }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in generate-response-suggestion:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+    console.error('💥 Erro em generate-response-suggestion:', error);
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      details: error instanceof Error ? error.stack : undefined 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
