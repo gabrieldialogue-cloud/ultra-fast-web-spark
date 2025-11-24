@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,53 +12,108 @@ serve(async (req) => {
   }
 
   try {
-    const contentType = req.headers.get('content-type');
-    
-    if (!contentType?.includes('audio/')) {
+    const { webmUrl, atendimentoId } = await req.json();
+
+    if (!webmUrl || !atendimentoId) {
       return new Response(
-        JSON.stringify({ error: 'Content-Type must be an audio format' }),
+        JSON.stringify({ error: 'Missing required fields: webmUrl and atendimentoId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Received audio with content-type:', contentType);
+    console.log('Converting audio from WebM to OGG/Opus:', webmUrl);
 
-    // Read the audio data
-    const audioData = await req.arrayBuffer();
-    console.log('Audio size:', audioData.byteLength, 'bytes');
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // For now, if it's already OGG, just return it
-    if (contentType.includes('ogg')) {
-      console.log('Audio already in OGG format, returning as-is');
-      return new Response(audioData, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'audio/ogg',
-        },
-      });
+    // Download WebM file
+    const webmResponse = await fetch(webmUrl);
+    if (!webmResponse.ok) {
+      throw new Error(`Failed to download WebM file: ${webmResponse.statusText}`);
     }
 
-    // For WebM, we'll use FFmpeg via a Docker container approach
-    // Since FFmpeg isn't available directly in Deno Deploy, we'll use a workaround:
-    // Convert WebM to OGG using the Web Audio API approach (client-side would be better)
-    // For now, we'll return an error suggesting client-side conversion
+    const webmData = await webmResponse.arrayBuffer();
+    console.log('Downloaded WebM file, size:', webmData.byteLength, 'bytes');
+
+    // Save WebM to temporary file
+    const webmPath = await Deno.makeTempFile({ suffix: '.webm' });
+    await Deno.writeFile(webmPath, new Uint8Array(webmData));
+
+    // Convert to OGG using FFmpeg
+    const oggPath = await Deno.makeTempFile({ suffix: '.ogg' });
     
-    // Actually, let's try a different approach: use OpenAI's API to re-encode
-    // OR return the audio as-is with proper content type for WhatsApp to handle
-    
-    // For WebM with Opus codec, WhatsApp might accept it with proper MIME type
-    // Let's try returning it as audio/ogg (since Opus is the codec)
-    console.log('Converting WebM to OGG-compatible format');
-    
-    return new Response(audioData, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'audio/ogg',
-      },
+    const ffmpegCommand = new Deno.Command('ffmpeg', {
+      args: [
+        '-i', webmPath,
+        '-vn',
+        '-c:a', 'libopus',
+        '-b:a', '32k',
+        '-f', 'ogg',
+        '-y',
+        oggPath
+      ],
+      stdout: 'piped',
+      stderr: 'piped',
     });
 
+    const ffmpegProcess = await ffmpegCommand.output();
+    
+    if (!ffmpegProcess.success) {
+      const errorText = new TextDecoder().decode(ffmpegProcess.stderr);
+      console.error('FFmpeg error:', errorText);
+      throw new Error('Audio conversion failed');
+    }
+
+    console.log('Conversion completed successfully');
+
+    // Read converted OGG file
+    const oggData = await Deno.readFile(oggPath);
+    console.log('Converted OGG file size:', oggData.byteLength, 'bytes');
+
+    // Upload OGG to Supabase Storage
+    const fileName = `${Date.now()}-audio.ogg`;
+    const filePath = `${atendimentoId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('chat-audios')
+      .upload(filePath, oggData, {
+        contentType: 'audio/ogg',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw uploadError;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('chat-audios')
+      .getPublicUrl(filePath);
+
+    console.log('OGG file uploaded successfully:', publicUrl);
+
+    // Cleanup temporary files
+    try {
+      await Deno.remove(webmPath);
+      await Deno.remove(oggPath);
+    } catch (e) {
+      console.error('Failed to cleanup temp files:', e);
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        oggUrl: publicUrl,
+        originalSize: webmData.byteLength,
+        convertedSize: oggData.byteLength 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
-    console.error('Error converting audio:', error);
+    console.error('Error in convert-audio function:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),

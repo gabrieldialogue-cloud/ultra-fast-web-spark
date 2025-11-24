@@ -29,11 +29,11 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
         } 
       });
 
-      // Tentar OGG/Opus primeiro; se não suportar, usar WebM e converter depois
+      // Try OGG/Opus first; fallback to WebM (backend will convert)
       let mimeType = 'audio/ogg;codecs=opus';
       
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        console.warn('OGG não suportado, gravando em WebM para conversão posterior');
+        console.log('OGG format not supported, using WebM (backend will convert)');
         mimeType = 'audio/webm;codecs=opus';
         
         if (!MediaRecorder.isTypeSupported(mimeType)) {

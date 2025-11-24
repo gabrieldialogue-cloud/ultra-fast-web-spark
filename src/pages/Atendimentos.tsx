@@ -866,36 +866,18 @@ export default function Atendimentos() {
     if (!selectedAtendimentoIdVendedor) return;
 
     try {
-      let finalAudioBlob = audioBlob;
       const blobType = audioBlob.type;
+      const isWebM = blobType.includes('webm');
       
-      // Se não for OGG, converter usando libav.js
-      if (!blobType.includes('ogg')) {
-        console.log('Convertendo áudio de', blobType, 'para OGG/Opus');
-        try {
-          const { convertToOggOpus } = await import('@/lib/audioConversion');
-          finalAudioBlob = await convertToOggOpus(audioBlob);
-          console.log('Áudio convertido com sucesso para OGG/Opus');
-        } catch (conversionError) {
-          console.error('Conversão de áudio falhou:', conversionError);
-          toast.error("Erro ao processar áudio", {
-            description: "Não foi possível converter o áudio para o formato aceito pelo WhatsApp.",
-          });
-          throw conversionError;
-        }
-      }
-
-      const contentType = 'audio/ogg';
-      const extension = 'ogg';
-      
-      // Upload audio to Supabase Storage
+      // Upload original audio to Supabase Storage
+      const extension = isWebM ? 'webm' : 'ogg';
       const fileName = `${Date.now()}-audio.${extension}`;
       const filePath = `${selectedAtendimentoIdVendedor}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat-audios')
-        .upload(filePath, finalAudioBlob, {
-          contentType,
+        .upload(filePath, audioBlob, {
+          contentType: audioBlob.type,
         });
 
       if (uploadError) {
@@ -906,6 +888,30 @@ export default function Atendimentos() {
       const { data: { publicUrl } } = supabase.storage
         .from('chat-audios')
         .getPublicUrl(filePath);
+
+      let finalAudioUrl = publicUrl;
+
+      // If WebM, convert to OGG using backend
+      if (isWebM) {
+        console.log('Converting WebM to OGG via backend...');
+        const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-audio', {
+          body: {
+            webmUrl: publicUrl,
+            atendimentoId: selectedAtendimentoIdVendedor,
+          },
+        });
+
+        if (conversionError || !conversionData?.oggUrl) {
+          console.error('Backend conversion failed:', conversionError);
+          toast.error("Erro ao converter áudio", {
+            description: "Não foi possível converter o áudio para o formato aceito pelo WhatsApp.",
+          });
+          throw conversionError || new Error('Conversion failed');
+        }
+
+        finalAudioUrl = conversionData.oggUrl;
+        console.log('Audio converted successfully via backend');
+      }
 
       // Get atendimento and client phone
       const atendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
@@ -919,13 +925,13 @@ export default function Atendimentos() {
       const { data, error } = await supabase.functions.invoke('whatsapp-send', {
         body: {
           to: clienteTelefone,
-          audioUrl: publicUrl,
+          audioUrl: finalAudioUrl,
         },
       });
 
       if (error) throw error;
 
-      // Save message to database without transcription
+      // Save message to database
       const { error: dbError } = await supabase
         .from('mensagens')
         .insert({
@@ -933,7 +939,7 @@ export default function Atendimentos() {
           conteudo: '[Áudio]',
           remetente_tipo: isSupervisor ? 'supervisor' : 'vendedor',
           remetente_id: vendedorId,
-          attachment_url: publicUrl,
+          attachment_url: finalAudioUrl,
           attachment_type: 'audio',
           attachment_filename: fileName,
           whatsapp_message_id: data?.messageId,
