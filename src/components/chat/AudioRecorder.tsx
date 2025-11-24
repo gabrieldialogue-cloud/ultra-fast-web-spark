@@ -98,64 +98,86 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   // Show preview with waveform
   if (audioPreview) {
     return (
-      <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4 px-4 pointer-events-none">
-        <Card className="w-full max-w-md p-3 shadow-2xl bg-gradient-to-br from-card to-card/95 backdrop-blur-sm border-2 border-primary/20 pointer-events-auto animate-in slide-in-from-bottom-4 duration-300">
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
-                  <Mic className="h-4 w-4 text-primary-foreground animate-pulse" />
+      <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center pb-20 px-4 pointer-events-none animate-in slide-in-from-bottom-5 duration-300">
+        <div className="w-full max-w-lg pointer-events-auto">
+          <div className="bg-gradient-to-br from-background via-card to-background/95 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-primary/30 overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-4 pb-3 border-b border-border/40 bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-md animate-pulse"></div>
+                    <div className="relative h-11 w-11 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary/70 flex items-center justify-center shadow-lg">
+                      <Mic className="h-5 w-5 text-primary-foreground" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-foreground">Áudio Gravado</p>
+                    <p className="text-xs text-muted-foreground">Revise antes de enviar</p>
+                  </div>
                 </div>
-                <p className="text-sm font-bold text-foreground">Preview do Áudio</p>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleCancel}
+                  className="h-9 w-9 rounded-full hover:bg-destructive/10 hover:text-destructive transition-all hover:rotate-90 duration-300"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={handleCancel}
-                className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive transition-all"
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            
-            <div className="space-y-2 p-2 rounded-xl bg-muted/30 border border-border/50">
-              <AudioWaveform audioBlob={audioPreview} className="bg-background/50 rounded-lg p-1.5 border border-border/30" />
-              <audio controls className="w-full h-8 rounded-lg audio-player-styled">
-                <source src={URL.createObjectURL(audioPreview)} type="audio/webm" />
-              </audio>
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                className="flex-1 hover:bg-muted border-2 hover:border-destructive/50 transition-all h-8"
-              >
-                <X className="h-3.5 w-3.5 mr-1.5" />
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSend}
-                disabled={isSending}
-                className="flex-1 bg-gradient-to-r from-success to-success/90 hover:from-success/90 hover:to-success/80 text-white shadow-lg shadow-success/20 transition-all h-8"
-              >
-                {isSending ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    Enviar
-                  </>
-                )}
-              </Button>
+            {/* Audio Content */}
+            <div className="px-5 py-4">
+              <div className="space-y-3">
+                {/* Waveform */}
+                <div className="relative p-3 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 shadow-inner">
+                  <AudioWaveform audioBlob={audioPreview} className="bg-background/60 rounded-xl p-2 border border-border/20 shadow-sm" />
+                </div>
+
+                {/* Audio Player */}
+                <div className="relative p-3 rounded-2xl bg-gradient-to-br from-card to-muted/30 border border-border/40 shadow-md">
+                  <audio controls className="w-full h-9 audio-player-styled rounded-xl">
+                    <source src={URL.createObjectURL(audioPreview)} type="audio/webm" />
+                  </audio>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5">
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleCancel}
+                  className="flex-1 rounded-2xl border-2 hover:bg-muted hover:border-destructive/40 hover:text-destructive transition-all duration-300 h-12 font-semibold"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Descartar
+                </Button>
+                <Button
+                  size="lg"
+                  onClick={handleSend}
+                  disabled={isSending}
+                  className="flex-1 rounded-2xl bg-gradient-to-r from-success via-success/90 to-success/80 hover:from-success/90 hover:to-success/70 text-white shadow-xl shadow-success/30 transition-all duration-300 h-12 font-bold disabled:opacity-50"
+                >
+                  {isSending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Enviar Áudio
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
