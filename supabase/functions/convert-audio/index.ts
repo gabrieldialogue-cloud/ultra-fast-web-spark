@@ -52,7 +52,7 @@ serve(async (req) => {
     return new Response(audioData, {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'audio/ogg; codecs=opus',
+        'Content-Type': 'audio/ogg',
       },
     });
 

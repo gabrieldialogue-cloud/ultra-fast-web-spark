@@ -868,9 +868,10 @@ export default function Atendimentos() {
     try {
       let finalAudioBlob = audioBlob;
       const blobType = audioBlob.type;
+      let isOgg = blobType.includes('ogg');
       
       // Se não for OGG, converter usando edge function
-      if (!blobType.includes('ogg')) {
+      if (!isOgg) {
         console.log('Converting audio from', blobType, 'to OGG');
         
         try {
@@ -884,8 +885,9 @@ export default function Atendimentos() {
           if (convertResponse.error) {
             console.warn('Conversion failed, using original:', convertResponse.error);
           } else if (convertResponse.data) {
-            // Convert response data to Blob
-            finalAudioBlob = new Blob([convertResponse.data], { type: 'audio/ogg; codecs=opus' });
+            // Convert response data to Blob (forçar mime type simples para o WhatsApp)
+            finalAudioBlob = new Blob([convertResponse.data], { type: 'audio/ogg' });
+            isOgg = true;
             console.log('Audio converted successfully to OGG');
           }
         } catch (conversionError) {
@@ -893,9 +895,11 @@ export default function Atendimentos() {
         }
       }
 
-      // Determine file extension based on final blob type
+      // Determine file extension and content-type based on final blob type
       const finalBlobType = finalAudioBlob.type;
-      const extension = finalBlobType.includes('ogg') ? 'ogg' : 'webm';
+      const isOggFinal = isOgg || finalBlobType.includes('ogg');
+      const extension = isOggFinal ? 'ogg' : 'webm';
+      const contentType = isOggFinal ? 'audio/ogg' : finalBlobType;
       
       // Upload audio to Supabase Storage
       const fileName = `${Date.now()}-audio.${extension}`;
@@ -904,7 +908,7 @@ export default function Atendimentos() {
       const { error: uploadError } = await supabase.storage
         .from('chat-audios')
         .upload(filePath, finalAudioBlob, {
-          contentType: finalBlobType,
+          contentType,
         });
 
       if (uploadError) {
