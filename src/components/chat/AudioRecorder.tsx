@@ -16,6 +16,7 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   const [audioPreview, setAudioPreview] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordTimeoutRef = useRef<number | null>(null);
   const { toast } = useToast();
 
   const startRecording = async () => {
@@ -63,6 +64,23 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
           setAudioPreview(audioBlob);
         }
       };
+
+      // Limite de duração para reduzir tamanho do arquivo (ex: 60s)
+      const MAX_DURATION_MS = 60_000;
+      if (recordTimeoutRef.current) {
+        clearTimeout(recordTimeoutRef.current);
+      }
+      recordTimeoutRef.current = window.setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+          console.log("Tempo máximo de gravação atingido, parando automaticamente");
+          mediaRecorderRef.current.stop();
+          setIsRecording(false);
+          toast({
+            title: "Limite de gravação atingido",
+            description: "O áudio foi limitado a 60 segundos para reduzir o tamanho do arquivo.",
+          });
+        }
+      }, MAX_DURATION_MS);
 
       mediaRecorder.start();
       setIsRecording(true);
@@ -216,7 +234,20 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
       title={isRecording ? "Parar gravação" : "Gravar áudio"}
     >
       {isRecording ? (
-        <Square className="h-5 w-5 animate-pulse" />
+        <div className="flex items-end justify-center gap-0.5 h-5 w-5">
+          <span
+            className="w-[3px] bg-primary-foreground rounded-sm animate-[bounce_0.8s_ease-in-out_infinite]"
+            style={{ animationDelay: "0ms" }}
+          />
+          <span
+            className="w-[3px] bg-primary-foreground/80 rounded-sm animate-[bounce_0.8s_ease-in-out_infinite]"
+            style={{ animationDelay: "150ms" }}
+          />
+          <span
+            className="w-[3px] bg-primary-foreground/60 rounded-sm animate-[bounce_0.8s_ease-in-out_infinite]"
+            style={{ animationDelay: "300ms" }}
+          />
+        </div>
       ) : (
         <Mic className="h-5 w-5" />
       )}
