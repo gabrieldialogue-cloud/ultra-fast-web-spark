@@ -473,9 +473,9 @@ export function AtendimentoChatModal({
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <>
-          <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-            <TabsList className="mx-4 mt-2">
+        <div className="flex flex-col flex-1 min-h-0">
+          <Tabs defaultValue="chat" className="flex flex-col flex-1 min-h-0">
+            <TabsList className="mx-4 mt-2 shrink-0">
               <TabsTrigger value="chat" className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Chat
@@ -486,7 +486,7 @@ export function AtendimentoChatModal({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="chat" className="flex-1 flex flex-col mt-0">
+            <TabsContent value="chat" className="flex flex-col flex-1 min-h-0 mt-0">
               <ScrollArea className="flex-1 px-4 py-4" ref={scrollRef}>
                 <div className="space-y-4">
                   {hasMore && (
@@ -531,9 +531,41 @@ export function AtendimentoChatModal({
                   )}
                 </div>
               </ScrollArea>
+
+              {/* Input de mensagem - fixo na parte inferior */}
+              <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-4 shrink-0">
+                <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
+                  <Textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Digite sua mensagem..."
+                    className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                    disabled={isSending}
+                  />
+                  <div className="flex gap-2">
+                    <FileUpload 
+                      onFileSelected={handleFileSelected}
+                      disabled={isSending}
+                    />
+                    <AudioRecorder 
+                      onAudioRecorded={handleAudioRecorded}
+                      disabled={isSending}
+                    />
+                    <Button
+                      onClick={handleSend}
+                      disabled={!message.trim() || isSending}
+                      size="icon"
+                      className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                      <Send className="h-5 w-5 text-white" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
-            <TabsContent value="media" className="flex-1 mt-0">
+            <TabsContent value="media" className="flex-1 mt-0 overflow-hidden">
               <MediaGallery 
                 mensagens={mensagens as any}
                 hasMoreMedia={hasMore}
@@ -541,51 +573,19 @@ export function AtendimentoChatModal({
               />
             </TabsContent>
           </Tabs>
-
-          {/* Input de mensagem */}
-          <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-4">
-            <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Digite sua mensagem..."
-                className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
-                disabled={isSending}
-              />
-              <div className="flex gap-2">
-                <FileUpload 
-                  onFileSelected={handleFileSelected}
-                  disabled={isSending}
-                />
-                <AudioRecorder 
-                  onAudioRecorded={handleAudioRecorded}
-                  disabled={isSending}
-                />
-                <Button
-                  onClick={handleSend}
-                  disabled={!message.trim() || isSending}
-                  size="icon"
-                  className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
-                >
-                  <Send className="h-5 w-5 text-white" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </>
   );
 
   if (embedded) {
-    return <div className="flex flex-col h-full">{content}</div>;
+    return <div className="flex flex-col h-full overflow-hidden">{content}</div>;
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl h-[80vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center justify-between">
             <div>
               <p className="text-lg font-semibold">{clienteNome}</p>
@@ -597,7 +597,9 @@ export function AtendimentoChatModal({
           </DialogTitle>
         </DialogHeader>
 
-        {content}
+        <div className="flex flex-col flex-1 min-h-0">
+          {content}
+        </div>
       </DialogContent>
     </Dialog>
   );
