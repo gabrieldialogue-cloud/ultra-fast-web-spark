@@ -257,10 +257,10 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
       variant="ghost"
       onClick={startRecording}
       disabled={disabled}
-      className="h-[80px] w-12"
+      className="h-14 w-14 rounded-2xl hover:bg-primary/10 transition-all duration-300 hover:scale-105 shrink-0"
       title="Gravar áudio"
     >
-      <Mic className="h-5 w-5" />
+      <Mic className="h-5 w-5 text-muted-foreground" />
     </Button>
   );
 }

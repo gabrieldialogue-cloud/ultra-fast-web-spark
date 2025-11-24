@@ -1901,48 +1901,50 @@ export default function Atendimentos() {
                                       </div>
                                     )}
                                     
-                                    <div className="flex gap-2 items-end">
-                                      <Input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
-                                        onChange={handleFileSelect}
-                                        className="hidden"
-                                      />
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-[60px] w-[60px] shrink-0"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={isUploading || isSending}
-                                      >
-                                        <Paperclip className="h-5 w-5" />
-                                      </Button>
-                                      <Textarea
-                                        ref={messageInputRef}
-                                        value={messageInput}
-                                        onChange={handleInputChange}
-                                        onKeyPress={handleKeyPress}
-                                        placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
-                                        className="min-h-[60px] max-h-[120px] resize-none flex-1"
-                                        disabled={isSending || isUploading}
-                                      />
-                                      <Button
-                                        onClick={selectedFile ? handleSendWithFile : handleSendMessage}
-                                        disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
-                                        size="icon"
-                                        className="h-[60px] w-[60px] shrink-0 bg-success hover:bg-success/90"
-                                      >
-                                        {(isSending || isUploading) ? (
-                                          <Loader2 className="h-5 w-5 animate-spin" />
-                                        ) : (
-                                          <Send className="h-5 w-5" />
-                                        )}
-                                      </Button>
-                                      <AudioRecorder 
-                                        onAudioRecorded={handleAudioRecorded}
-                                        disabled={isSending || isUploading}
-                                      />
+                                    <div className="bg-gradient-to-br from-background to-muted/20 p-4 rounded-2xl">
+                                      <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
+                                        <Input
+                                          ref={fileInputRef}
+                                          type="file"
+                                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+                                          onChange={handleFileSelect}
+                                          className="hidden"
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-14 w-14 rounded-2xl hover:bg-primary/10 transition-all duration-300 hover:scale-105 shrink-0"
+                                          onClick={() => fileInputRef.current?.click()}
+                                          disabled={isUploading || isSending}
+                                        >
+                                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                                        </Button>
+                                        <Textarea
+                                          ref={messageInputRef}
+                                          value={messageInput}
+                                          onChange={handleInputChange}
+                                          onKeyPress={handleKeyPress}
+                                          placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
+                                          className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                                          disabled={isSending || isUploading}
+                                        />
+                                        <Button
+                                          onClick={selectedFile ? handleSendWithFile : handleSendMessage}
+                                          disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
+                                          size="icon"
+                                          className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
+                                        >
+                                          {(isSending || isUploading) ? (
+                                            <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                          ) : (
+                                            <Send className="h-5 w-5 text-white" />
+                                          )}
+                                        </Button>
+                                        <AudioRecorder 
+                                          onAudioRecorded={handleAudioRecorded}
+                                          disabled={isSending || isUploading}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 )}
