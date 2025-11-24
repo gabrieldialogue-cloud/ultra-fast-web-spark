@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Loader2, Send, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -15,9 +15,31 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   const [isRecording, setIsRecording] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [audioPreview, setAudioPreview] = useState<Blob | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
   const recorderRef = useRef<any>(null);
   const recordTimeoutRef = useRef<number | null>(null);
+  const recordingIntervalRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
+
+  // Timer para atualizar tempo de gravação
+  useEffect(() => {
+    if (isRecording) {
+      setRecordingTime(0);
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, [isRecording]);
 
   const startRecording = async () => {
     try {
@@ -28,6 +50,8 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
           autoGainControl: true,
         } 
       });
+
+      streamRef.current = stream;
 
       console.log('Gravando com opus-recorder em formato OGG/Opus (WhatsApp compatível)');
 
@@ -45,9 +69,12 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
       recorder.ondataavailable = (typedArray: Uint8Array) => {
         const audioBlob = new Blob([new Uint8Array(typedArray)], { type: 'audio/ogg' });
         setAudioPreview(audioBlob);
+        setIsRecording(false);
         
         // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
       };
 
       await recorder.start();
@@ -59,7 +86,7 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
         clearTimeout(recordTimeoutRef.current);
       }
       recordTimeoutRef.current = window.setTimeout(() => {
-        if (recorderRef.current && isRecording) {
+        if (recorderRef.current) {
           console.log("Tempo máximo de gravação atingido, parando automaticamente");
           stopRecording();
           toast({
@@ -79,9 +106,8 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   };
 
   const stopRecording = () => {
-    if (recorderRef.current && isRecording) {
+    if (recorderRef.current) {
       recorderRef.current.stop();
-      setIsRecording(false);
       if (recordTimeoutRef.current) {
         clearTimeout(recordTimeoutRef.current);
       }
@@ -108,8 +134,94 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   };
 
   const handleCancel = () => {
-    setAudioPreview(null);
+    if (isRecording) {
+      stopRecording();
+      setAudioPreview(null);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      setIsRecording(false);
+    } else {
+      setAudioPreview(null);
+    }
   };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Show recording UI
+  if (isRecording) {
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-[100] flex justify-center pb-20 px-4 pointer-events-none animate-in slide-in-from-bottom-5 duration-300">
+        <div className="w-full max-w-lg pointer-events-auto">
+          <div className="bg-gradient-to-br from-background via-card to-background/95 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-destructive/30 overflow-hidden">
+            {/* Header */}
+            <div className="px-5 pt-4 pb-3 border-b border-border/40 bg-gradient-to-r from-destructive/5 to-transparent">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-destructive/20 rounded-full blur-md animate-pulse"></div>
+                    <div className="relative h-11 w-11 rounded-full bg-gradient-to-br from-destructive via-destructive/90 to-destructive/70 flex items-center justify-center shadow-lg">
+                      <Mic className="h-5 w-5 text-destructive-foreground animate-pulse" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-foreground">Gravando...</p>
+                    <p className="text-xs text-muted-foreground">{formatTime(recordingTime)}</p>
+                  </div>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleCancel}
+                  className="h-9 w-9 rounded-full hover:bg-destructive/10 hover:text-destructive transition-all hover:rotate-90 duration-300"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Recording Animation */}
+            <div className="px-5 py-8">
+              <div className="relative p-6 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 shadow-inner">
+                <div className="flex items-center justify-center gap-2 h-24">
+                  {[...Array(20)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-gradient-to-t from-destructive to-destructive/40 rounded-full animate-pulse"
+                      style={{
+                        height: `${20 + Math.random() * 60}%`,
+                        animationDelay: `${i * 0.1}s`,
+                        animationDuration: `${0.8 + Math.random() * 0.4}s`
+                      }}
+                    />
+                  ))}
+                </div>
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  Fale agora... Suas ondas de voz aparecem aqui
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5">
+              <Button
+                size="lg"
+                onClick={stopRecording}
+                className="w-full rounded-2xl bg-gradient-to-r from-destructive via-destructive/90 to-destructive/80 hover:from-destructive/90 hover:to-destructive/70 text-white shadow-xl shadow-destructive/30 transition-all duration-300 h-12 font-bold"
+              >
+                <Square className="h-4 w-4 mr-2 fill-current" />
+                Parar Gravação
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show preview with waveform
   if (audioPreview) {
