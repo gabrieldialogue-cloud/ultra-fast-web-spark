@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AtendimentoChatModal } from "@/components/supervisor/AtendimentoChatModal";
 import { HierarchyFlow } from "@/components/supervisor/HierarchyFlow";
+import { ConnectionArrows } from "@/components/supervisor/ConnectionArrows";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -355,6 +356,12 @@ export default function SupervisorAtendimentos() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Setas de Conexão Animadas */}
+        <ConnectionArrows
+          selectedMarca={selectedMarca}
+          selectedVendedor={selectedVendedor}
+        />
+        
         {/* Hierarquia Visual com Setas */}
         <HierarchyFlow
           selectedMarca={selectedMarca}
@@ -435,6 +442,7 @@ export default function SupervisorAtendimentos() {
                           marcasFiltradas.map((marca) => (
                             <button
                               key={marca}
+                              data-marca={marca}
                               onClick={() => {
                                 setSelectedMarca(marca || null);
                                 setSelectedVendedor(null);
@@ -544,6 +552,8 @@ export default function SupervisorAtendimentos() {
                                 return (
                                   <button
                                     key={vendedor.id}
+                                    data-vendedor-id={vendedor.id}
+                                    data-vendedor-marca={vendedor.especialidade_marca}
                                     onClick={() => {
                                       setSelectedVendedor(vendedor);
                                       setSelectedAtendimento(null);
@@ -686,6 +696,7 @@ export default function SupervisorAtendimentos() {
                                 return (
                            <button
                                     key={atendimento.id}
+                                    data-cliente-vendedor={selectedVendedor?.id}
                                     onClick={() => setSelectedAtendimento(atendimento)}
                                     className={`w-full text-left px-3 py-3 rounded-xl transition-all duration-300 relative overflow-hidden ${
                                       selectedAtendimento?.id === atendimento.id 
