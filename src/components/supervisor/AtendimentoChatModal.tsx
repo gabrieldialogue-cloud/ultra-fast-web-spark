@@ -455,7 +455,7 @@ export function AtendimentoChatModal({
 
   const content = embedded ? (
     // Layout para modo embedded (dentro da página do supervisor)
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full animate-fade-in">
       <ImagePreviewDialog
         open={showImagePreview}
         onOpenChange={setShowImagePreview}
@@ -512,38 +512,39 @@ export function AtendimentoChatModal({
                   </div>
                 ) : (
                   mensagens.map((mensagem: any) => (
-                    <ChatMessage
-                      key={mensagem.id}
-                      messageId={mensagem.id}
-                      remetenteTipo={mensagem.remetente_tipo}
-                      conteudo={mensagem.conteudo}
-                      createdAt={mensagem.created_at}
-                      attachmentUrl={mensagem.attachment_url}
-                      attachmentType={mensagem.attachment_type}
-                      attachmentFilename={mensagem.attachment_filename}
-                      transcription={mensagem.attachment_type === 'audio' && mensagem.conteudo !== '[Áudio]' && mensagem.conteudo !== '[Audio]' ? mensagem.conteudo : null}
-                      clientePushName={mensagem.atendimentos?.clientes?.push_name}
-                      clienteProfilePicture={mensagem.atendimentos?.clientes?.profile_picture_url}
-                      senderName={mensagem.usuarios?.nome}
-                      currentUserId={supervisorInfo?.id}
-                      remeteId={mensagem.remetente_id}
-                    />
+                    <div key={mensagem.id} className="animate-fade-in">
+                      <ChatMessage
+                        messageId={mensagem.id}
+                        remetenteTipo={mensagem.remetente_tipo}
+                        conteudo={mensagem.conteudo}
+                        createdAt={mensagem.created_at}
+                        attachmentUrl={mensagem.attachment_url}
+                        attachmentType={mensagem.attachment_type}
+                        attachmentFilename={mensagem.attachment_filename}
+                        transcription={mensagem.attachment_type === 'audio' && mensagem.conteudo !== '[Áudio]' && mensagem.conteudo !== '[Audio]' ? mensagem.conteudo : null}
+                        clientePushName={mensagem.atendimentos?.clientes?.push_name}
+                        clienteProfilePicture={mensagem.atendimentos?.clientes?.profile_picture_url}
+                        senderName={mensagem.usuarios?.nome}
+                        currentUserId={supervisorInfo?.id}
+                        remeteId={mensagem.remetente_id}
+                      />
+                    </div>
                   ))
                 )}
               </div>
             </ScrollArea>
 
-            <div className="border-t p-4 bg-background shrink-0">
-              <div className="flex gap-2 items-end">
+            <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-6 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0">
+              <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
                 <Textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Digite sua mensagem..."
-                  className="min-h-[60px] max-h-[120px] resize-none"
+                  className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                   disabled={isSending}
                 />
-                <div className="flex gap-2 flex-col">
+                <div className="flex gap-2">
                   <FileUpload 
                     onFileSelected={handleFileSelected}
                     disabled={isSending}
@@ -556,8 +557,9 @@ export function AtendimentoChatModal({
                     onClick={handleSend}
                     disabled={!message.trim() || isSending}
                     size="icon"
+                    className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-5 w-5 text-white" />
                   </Button>
                 </div>
               </div>
@@ -644,38 +646,39 @@ export function AtendimentoChatModal({
                     </div>
                   ) : (
                     mensagens.map((mensagem: any) => (
-                      <ChatMessage
-                        key={mensagem.id}
-                        messageId={mensagem.id}
-                        remetenteTipo={mensagem.remetente_tipo}
-                        conteudo={mensagem.conteudo}
-                        createdAt={mensagem.created_at}
-                        attachmentUrl={mensagem.attachment_url}
-                        attachmentType={mensagem.attachment_type}
-                        attachmentFilename={mensagem.attachment_filename}
-                        transcription={mensagem.attachment_type === 'audio' && mensagem.conteudo !== '[Áudio]' && mensagem.conteudo !== '[Audio]' ? mensagem.conteudo : null}
-                        clientePushName={mensagem.atendimentos?.clientes?.push_name}
-                        clienteProfilePicture={mensagem.atendimentos?.clientes?.profile_picture_url}
-                        senderName={mensagem.usuarios?.nome}
-                        currentUserId={supervisorInfo?.id}
-                        remeteId={mensagem.remetente_id}
-                      />
+                      <div key={mensagem.id} className="animate-fade-in">
+                        <ChatMessage
+                          messageId={mensagem.id}
+                          remetenteTipo={mensagem.remetente_tipo}
+                          conteudo={mensagem.conteudo}
+                          createdAt={mensagem.created_at}
+                          attachmentUrl={mensagem.attachment_url}
+                          attachmentType={mensagem.attachment_type}
+                          attachmentFilename={mensagem.attachment_filename}
+                          transcription={mensagem.attachment_type === 'audio' && mensagem.conteudo !== '[Áudio]' && mensagem.conteudo !== '[Audio]' ? mensagem.conteudo : null}
+                          clientePushName={mensagem.atendimentos?.clientes?.push_name}
+                          clienteProfilePicture={mensagem.atendimentos?.clientes?.profile_picture_url}
+                          senderName={mensagem.usuarios?.nome}
+                          currentUserId={supervisorInfo?.id}
+                          remeteId={mensagem.remetente_id}
+                        />
+                      </div>
                     ))
                   )}
                 </div>
               </ScrollArea>
 
-              <div className="border-t p-4 bg-background shrink-0">
-                <div className="flex gap-2 items-end">
+              <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-6 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0">
+                <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
                   <Textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Digite sua mensagem..."
-                    className="min-h-[60px] max-h-[120px] resize-none"
+                    className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                     disabled={isSending}
                   />
-                  <div className="flex gap-2 flex-col">
+                  <div className="flex gap-2">
                     <FileUpload 
                       onFileSelected={handleFileSelected}
                       disabled={isSending}
@@ -688,8 +691,9 @@ export function AtendimentoChatModal({
                       onClick={handleSend}
                       disabled={!message.trim() || isSending}
                       size="icon"
+                      className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-5 w-5 text-white" />
                     </Button>
                   </div>
                 </div>
