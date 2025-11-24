@@ -18,6 +18,8 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
       return;
     }
 
+    console.log('🔄 Refazendo fetch de contadores não lidos para', atendimentos.length, 'atendimentos');
+
     const counts: Record<string, number> = {};
     
     // Contar não lidas para TODOS os atendimentos, sem exceção
@@ -34,6 +36,7 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
       }
     }
     
+    console.log('📊 Contadores atualizados:', counts);
     setUnreadCounts(counts);
   }, [vendedorId, enabled, atendimentos]);
 
@@ -61,10 +64,16 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
               (payload.new.remetente_tipo === 'cliente' || payload.new.remetente_tipo === 'ia')) {
             const atendimentoId = payload.new.atendimento_id;
             
-            setUnreadCounts(prev => ({
-              ...prev,
-              [atendimentoId]: (prev[atendimentoId] || 0) + 1
-            }));
+            console.log('➕ Incrementando contador para atendimento:', atendimentoId);
+            
+            setUnreadCounts(prev => {
+              const newCount = (prev[atendimentoId] || 0) + 1;
+              console.log(`   Contador anterior: ${prev[atendimentoId] || 0}, novo: ${newCount}`);
+              return {
+                ...prev,
+                [atendimentoId]: newCount
+              };
+            });
           }
         }
       )
