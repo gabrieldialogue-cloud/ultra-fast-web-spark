@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { compressImage, shouldCompress } from "@/lib/imageCompression";
 import { useTypingBroadcast } from "@/hooks/useTypingBroadcast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
+import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 
 type DetailType = 
   | "ia_respondendo"
@@ -80,6 +81,13 @@ export default function Atendimentos() {
     hasMoreMessages
   } = useRealtimeMessages({
     atendimentoId: selectedAtendimentoIdVendedor,
+    vendedorId,
+    enabled: !isSupervisor
+  });
+
+  // Hook para contar mensagens não lidas
+  const { unreadCounts: unreadCountsVendedor, clearUnreadCount } = useUnreadCounts({
+    atendimentos: atendimentosVendedor,
     vendedorId,
     enabled: !isSupervisor
   });
@@ -450,17 +458,19 @@ export default function Atendimentos() {
     }
   };
 
-  // Auto scroll to bottom when messages change or atendimento is selected
+  // Auto scroll to bottom when atendimento is selected or messages change
   useEffect(() => {
     if (scrollRef.current && !isSupervisor && selectedAtendimentoIdVendedor) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      }, 100);
+      // Use requestAnimationFrame to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        });
+      });
     }
-  }, [mensagensVendedor, isSupervisor, selectedAtendimentoIdVendedor]);
+  }, [selectedAtendimentoIdVendedor, mensagensVendedor, isSupervisor]);
 
   // Send message function - Optimized for low latency
   const handleSendMessage = async () => {
@@ -1351,10 +1361,11 @@ export default function Atendimentos() {
                                        .limit(1);
                                      
                                      return (
-                                        <button
+                                         <button
                                           key={atendimento.id}
                                            onClick={() => {
                                              setSelectedAtendimentoIdVendedor(atendimento.id);
+                                             clearUnreadCount(atendimento.id);
                                            }}
                                            className={`w-full text-left p-4 rounded-lg transition-all duration-300 hover:scale-[1.02] ${
                                              selectedAtendimentoIdVendedor === atendimento.id 
@@ -1394,10 +1405,15 @@ export default function Atendimentos() {
                                                </span>
                                              </div>
                                            </div>
-                                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <Clock className="h-3 w-3" />
-                                            <span>{format(new Date(atendimento.created_at), "HH:mm", { locale: ptBR })}</span>
-                                          </div>
+                                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                             {unreadCountsVendedor[atendimento.id] > 0 && (
+                                               <Badge variant="destructive" className="mr-2">
+                                                 {unreadCountsVendedor[atendimento.id]}
+                                               </Badge>
+                                             )}
+                                             <Clock className="h-3 w-3" />
+                                             <span>{format(new Date(atendimento.created_at), "HH:mm", { locale: ptBR })}</span>
+                                           </div>
                                         </div>
                                         <p className="text-xs text-muted-foreground mb-2">
                                           {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
