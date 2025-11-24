@@ -933,20 +933,39 @@ export default function Atendimentos() {
       const { data, error } = await supabase.functions.invoke('generate-response-suggestion', {
         body: {
           clientMessage: lastClientMessage.conteudo,
-          conversationContext: recentMessages.slice(0, -1) // Exclude the last message since we're passing it separately
+          conversationContext: recentMessages.slice(0, -1)
         }
       });
 
+      console.log('📥 Resposta da edge function:', { data, error });
+
       if (error) {
-        console.error('Erro ao gerar sugestão:', error);
-        throw error;
+        console.error('❌ Erro ao gerar sugestão:', error);
+        toast.error(`Erro: ${error.message || 'Falha ao gerar sugestão'}`);
+        return;
       }
 
-      if (data?.suggestedResponse) {
-        setMessageInput(data.suggestedResponse);
-        messageInputRef.current?.focus();
-        toast.success("Sugestão gerada! Revise antes de enviar.");
+      if (!data) {
+        console.error('❌ Resposta vazia da edge function');
+        toast.error("Erro: Resposta vazia da IA");
+        return;
       }
+
+      if (data.error) {
+        console.error('❌ Erro retornado pela IA:', data.error);
+        toast.error(`Erro da IA: ${data.error}`);
+        return;
+      }
+
+      if (!data.suggestedResponse || data.suggestedResponse.trim() === '') {
+        console.error('❌ Sugestão vazia:', data);
+        toast.error("A IA não conseguiu gerar uma resposta. Tente novamente.");
+        return;
+      }
+
+      setMessageInput(data.suggestedResponse);
+      messageInputRef.current?.focus();
+      toast.success("Sugestão gerada! Revise antes de enviar.");
     } catch (error) {
       console.error('Erro ao gerar sugestão:', error);
       toast.error("Erro ao gerar sugestão de resposta");
