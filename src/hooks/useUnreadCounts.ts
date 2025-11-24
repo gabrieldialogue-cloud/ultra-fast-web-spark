@@ -20,12 +20,8 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
 
     const counts: Record<string, number> = {};
     
+    // Contar não lidas para TODOS os atendimentos, sem exceção
     for (const atendimento of atendimentos) {
-      // Não contar não lidas para o atendimento que está sendo visualizado
-      if (atendimento.id === currentAtendimentoId) {
-        continue;
-      }
-      
       const { count } = await supabase
         .from('mensagens')
         .select('*', { count: 'exact', head: true })
@@ -39,7 +35,7 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
     }
     
     setUnreadCounts(counts);
-  }, [vendedorId, enabled, atendimentos, currentAtendimentoId]);
+  }, [vendedorId, enabled, atendimentos]);
 
   // Fetch inicial e quando a lista de atendimentos ou atendimento atual mudar
   useEffect(() => {
@@ -60,18 +56,15 @@ export function useUnreadCounts({ atendimentos, vendedorId, enabled, currentAten
           table: 'mensagens'
         },
         (payload) => {
-          // Nova mensagem de cliente/IA
+          // Nova mensagem de cliente/IA - sempre incrementar, independente do atendimento atual
           if (payload.new && 
               (payload.new.remetente_tipo === 'cliente' || payload.new.remetente_tipo === 'ia')) {
             const atendimentoId = payload.new.atendimento_id;
             
-            // Se não é o atendimento atual, incrementar contador
-            if (atendimentoId !== currentAtendimentoId) {
-              setUnreadCounts(prev => ({
-                ...prev,
-                [atendimentoId]: (prev[atendimentoId] || 0) + 1
-              }));
-            }
+            setUnreadCounts(prev => ({
+              ...prev,
+              [atendimentoId]: (prev[atendimentoId] || 0) + 1
+            }));
           }
         }
       )
