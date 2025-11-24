@@ -290,6 +290,27 @@ export default function Atendimentos() {
             fetchAtendimentosVendedor();
           }
         )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensagens'
+          },
+          async (payload) => {
+            // Check if the message belongs to one of the vendedor's atendimentos
+            const { data: atendimento } = await supabase
+              .from('atendimentos')
+              .select('vendedor_fixo_id')
+              .eq('id', payload.new.atendimento_id)
+              .single();
+            
+            if (atendimento?.vendedor_fixo_id === vendedorId) {
+              // Refresh the list to reorder by most recent message
+              fetchAtendimentosVendedor();
+            }
+          }
+        )
         .subscribe();
 
       return () => {
@@ -435,9 +456,6 @@ export default function Atendimentos() {
       );
 
       setAtendimentosVendedor(sorted);
-      if (!selectedAtendimentoIdVendedor) {
-        setSelectedAtendimentoIdVendedor(sorted[0].id);
-      }
     }
   };
 
@@ -1367,15 +1385,13 @@ export default function Atendimentos() {
                                        .limit(1);
                                      
                                      return (
-                                        <button
-                                          key={atendimento.id}
-                                           onClick={() => {
-                                             setSelectedAtendimentoIdVendedor(atendimento.id);
-                                             clearUnreadCount(atendimento.id);
-                                             if (selectedAtendimentoIdVendedor) {
-                                               markMessagesAsRead(atendimento.id);
-                                             }
-                                           }}
+                                         <button
+                                           key={atendimento.id}
+                                            onClick={() => {
+                                              setSelectedAtendimentoIdVendedor(atendimento.id);
+                                              clearUnreadCount(atendimento.id);
+                                              markMessagesAsRead(atendimento.id);
+                                            }}
                                            className={`w-full text-left p-4 rounded-lg transition-all duration-300 hover:scale-[1.02] ${
                                              selectedAtendimentoIdVendedor === atendimento.id 
                                                ? 'bg-gradient-to-b from-accent/20 to-transparent border-2 border-accent/50 shadow-lg' 
