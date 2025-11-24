@@ -454,7 +454,7 @@ export function AtendimentoChatModal({
   };
 
   const content = (
-    <>
+    <div className={embedded ? "flex flex-col h-full" : ""}>
       <ImagePreviewDialog
         open={showImagePreview}
         onOpenChange={setShowImagePreview}
@@ -464,22 +464,24 @@ export function AtendimentoChatModal({
         isSending={isSending}
       />
 
-      <div className="flex items-center justify-between border-b pb-3 px-4 pt-4">
-        <div>
-          <p className="text-lg font-semibold">{clienteNome}</p>
-          <p className="text-sm text-muted-foreground font-normal">{veiculoInfo}</p>
+      {!embedded && (
+        <div className="flex items-center justify-between border-b pb-3 px-4 pt-4">
+          <div>
+            <p className="text-lg font-semibold">{clienteNome}</p>
+            <p className="text-sm text-muted-foreground font-normal">{veiculoInfo}</p>
+          </div>
+          <Badge variant="outline" className={getStatusColor(status)}>
+            {status.replace(/_/g, ' ')}
+          </Badge>
         </div>
-        <Badge variant="outline" className={getStatusColor(status)}>
-          {status.replace(/_/g, ' ')}
-        </Badge>
-      </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex flex-col flex-1 min-h-0">
+        <div className={`flex flex-col ${embedded ? 'flex-1 h-full' : 'flex-1'} min-h-0`}>
           <Tabs defaultValue="chat" className="flex flex-col flex-1 min-h-0">
             <TabsList className="mx-4 mt-2 shrink-0">
               <TabsTrigger value="chat" className="flex items-center gap-2">
@@ -586,11 +588,11 @@ export function AtendimentoChatModal({
           </Tabs>
         </div>
       )}
-    </>
+    </div>
   );
 
   if (embedded) {
-    return <div className="flex flex-col h-full overflow-hidden">{content}</div>;
+    return content;
   }
 
   return (
