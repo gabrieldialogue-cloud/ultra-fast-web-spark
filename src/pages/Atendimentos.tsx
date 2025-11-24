@@ -471,13 +471,18 @@ export default function Atendimentos() {
         const atendimentosComUltimaMensagem = await Promise.all(
           data.map(async (atendimento) => {
             try {
-              const { data: ultimaMensagem } = await supabase
+              const { data: ultimasMensagens, error: ultimaMensagemError } = await supabase
                 .from('mensagens')
                 .select('created_at')
                 .eq('atendimento_id', atendimento.id)
                 .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+                .limit(1);
+
+              if (ultimaMensagemError) {
+                console.error('Erro ao buscar última mensagem:', ultimaMensagemError.message);
+              }
+
+              const ultimaMensagem = ultimasMensagens?.[0];
               
               return {
                 ...atendimento,
