@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck, Clock, Mic, FileType } from "lucide-react";
+import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck, Clock, Mic, FileType, Play, Pause, Volume2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,10 @@ export function ChatMessage({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [localTranscription, setLocalTranscription] = useState(transcription);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
   const config = remetenteConfig[remetenteTipo];
@@ -97,11 +101,77 @@ export function ChatMessage({
     setLocalTranscription(transcription);
   }, [transcription]);
 
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
   const handleSpeedChange = () => {
     const speeds = [1, 1.5, 2];
     const currentIndex = speeds.indexOf(playbackRate);
     const nextIndex = (currentIndex + 1) % speeds.length;
     setPlaybackRate(speeds[nextIndex]);
+  };
+
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    const newTime = percentage * duration;
+    
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
+    }
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleTranscribe = async () => {
@@ -276,18 +346,81 @@ export function ChatMessage({
                 </div>
 
                 {/* Audio Player Container */}
-                <div className="relative p-3 rounded-2xl bg-gradient-to-br from-background/80 to-muted/30 border border-border/40 shadow-inner backdrop-blur-sm">
+                <div className="relative p-4 rounded-2xl bg-gradient-to-br from-background/80 to-muted/30 border border-border/40 shadow-inner backdrop-blur-sm">
+                  {/* Hidden native audio element */}
                   <audio 
-                    ref={audioRef} 
-                    controls 
-                    className="w-full h-9 audio-player-styled rounded-xl" 
-                    style={{ maxWidth: '100%' }}
+                    ref={audioRef}
+                    className="hidden"
                   >
                     <source src={attachmentUrl} type="audio/ogg" />
                     <source src={attachmentUrl} type="audio/webm" />
                     <source src={attachmentUrl} type="audio/mpeg" />
-                    Seu navegador não suporta o elemento de áudio.
                   </audio>
+
+                  {/* Custom Player Controls */}
+                  <div className="space-y-3">
+                    {/* Play/Pause and Progress */}
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="icon"
+                        onClick={togglePlayPause}
+                        className={cn(
+                          "h-11 w-11 rounded-full shadow-lg transition-all hover:scale-110",
+                          remetenteTipo === "cliente" && "bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70",
+                          remetenteTipo === "ia" && "bg-gradient-to-br from-primary to-primary/70 hover:from-primary/80 hover:to-primary/60",
+                          remetenteTipo === "vendedor" && "bg-gradient-to-br from-success to-success/80 hover:from-success/90 hover:to-success/70",
+                          remetenteTipo === "supervisor" && "bg-gradient-to-br from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70"
+                        )}
+                      >
+                        {isPlaying ? (
+                          <Pause className="h-5 w-5 text-white fill-white" />
+                        ) : (
+                          <Play className="h-5 w-5 text-white fill-white ml-0.5" />
+                        )}
+                      </Button>
+
+                      <div className="flex-1 space-y-1.5">
+                        {/* Progress Bar */}
+                        <div 
+                          className="relative h-2 bg-muted rounded-full cursor-pointer group overflow-hidden"
+                          onClick={handleProgressClick}
+                        >
+                          <div 
+                            className={cn(
+                              "absolute inset-y-0 left-0 rounded-full transition-all",
+                              remetenteTipo === "cliente" && "bg-gradient-to-r from-primary to-primary/80",
+                              remetenteTipo === "ia" && "bg-gradient-to-r from-primary to-primary/70",
+                              remetenteTipo === "vendedor" && "bg-gradient-to-r from-success to-success/80",
+                              remetenteTipo === "supervisor" && "bg-gradient-to-r from-accent to-accent/80"
+                            )}
+                            style={{ width: `${(currentTime / duration) * 100 || 0}%` }}
+                          >
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 h-3 w-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                          </div>
+                        </div>
+
+                        {/* Time Display */}
+                        <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground px-0.5">
+                          <span>{formatTime(currentTime)}</span>
+                          <span>{formatTime(duration)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Volume Control */}
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        className="flex-1 h-1.5 bg-muted rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
