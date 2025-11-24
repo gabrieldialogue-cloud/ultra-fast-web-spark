@@ -37,6 +37,7 @@ interface Atendimento {
     conteudo: string;
     created_at: string;
     remetente_tipo: string;
+    read_at: string | null;
   }>;
 }
 
@@ -54,12 +55,23 @@ export default function SupervisorAtendimentos() {
   const [searchMarca, setSearchMarca] = useState("");
   const [searchVendedor, setSearchVendedor] = useState("");
   
-  // Estados para controlar colunas colapsadas
-  const [collapsedColumns, setCollapsedColumns] = useState({
-    marcas: false,
-    vendedores: true,
-    chat: true
+  // Carregar estado das colunas do localStorage
+  const [collapsedColumns, setCollapsedColumns] = useState(() => {
+    const saved = localStorage.getItem('supervisor-collapsed-columns');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { marcas: false, vendedores: true, chat: true };
+      }
+    }
+    return { marcas: false, vendedores: true, chat: true };
   });
+
+  // Salvar estado das colunas no localStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem('supervisor-collapsed-columns', JSON.stringify(collapsedColumns));
+  }, [collapsedColumns]);
 
   const toggleColumn = (column: keyof typeof collapsedColumns) => {
     setCollapsedColumns(prev => {
@@ -221,7 +233,7 @@ export default function SupervisorAtendimentos() {
       .select(`
         *,
         clientes (nome, telefone),
-        mensagens (conteudo, created_at, remetente_tipo)
+        mensagens (conteudo, created_at, remetente_tipo, read_at)
       `)
       .order("created_at", { ascending: false });
 
@@ -266,6 +278,24 @@ export default function SupervisorAtendimentos() {
   const atendimentosDoVendedor = selectedVendedor 
     ? atendimentos.filter(a => a.vendedor_fixo_id === selectedVendedor.id)
     : [];
+
+  // Calcular mensagens não lidas por vendedor
+  const getUnreadCountForVendedor = (vendedorId: string) => {
+    const vendedorAtendimentos = atendimentos.filter(a => a.vendedor_fixo_id === vendedorId);
+    return vendedorAtendimentos.reduce((total, atendimento) => {
+      const unreadInAtendimento = atendimento.mensagens.filter(
+        msg => msg.remetente_tipo === 'cliente' && !msg.read_at
+      ).length;
+      return total + unreadInAtendimento;
+    }, 0);
+  };
+
+  // Calcular mensagens não lidas por atendimento
+  const getUnreadCountForAtendimento = (atendimento: Atendimento) => {
+    return atendimento.mensagens.filter(
+      msg => msg.remetente_tipo === 'cliente' && !msg.read_at
+    ).length;
+  };
 
   // Filtrar marcas com busca
   const marcasFiltradas = Array.from(
@@ -343,7 +373,7 @@ export default function SupervisorAtendimentos() {
         ) : (
           <div className="flex gap-4 w-full">
             {/* Column 1: Marcas */}
-            <Card style={getColumnStyle('marcas')} className={`transition-all duration-300 ${collapsedColumns.marcas ? 'h-screen' : ''}`}>
+            <Card style={getColumnStyle('marcas')} className={`transition-all duration-500 ease-in-out ${collapsedColumns.marcas ? 'h-screen' : ''}`}>
               {collapsedColumns.marcas ? (
                 <div className="flex flex-col items-center justify-start h-full py-4 gap-4">
                   <Button
@@ -435,7 +465,7 @@ export default function SupervisorAtendimentos() {
             </Card>
 
             {/* Column 2: Vendedores */}
-            <Card style={getColumnStyle('vendedores')} className={`transition-all duration-300 ${collapsedColumns.vendedores ? 'h-screen' : ''}`}>
+            <Card style={getColumnStyle('vendedores')} className={`transition-all duration-500 ease-in-out ${collapsedColumns.vendedores ? 'h-screen' : ''}`}>
               {collapsedColumns.vendedores ? (
                 <div className="flex flex-col items-center justify-start h-full py-4 gap-4">
                   <Button
@@ -496,45 +526,55 @@ export default function SupervisorAtendimentos() {
                                 {searchVendedor ? 'Nenhum vendedor encontrado' : 'Nenhum vendedor cadastrado'}
                               </p>
                             ) : (
-                              vendedoresFiltradosPorBusca.map((vendedor) => (
-                                <button
-                                  key={vendedor.id}
-                              onClick={() => {
-                                setSelectedVendedor(vendedor);
-                                setSelectedAtendimento(null);
-                                // Abrir a coluna de chat automaticamente
-                                if (isMobile) {
-                                  // Em mobile, fechar marcas e manter vendedores
-                                  setCollapsedColumns(prev => ({
-                                    marcas: true,
-                                    vendedores: prev.vendedores,
-                                    chat: false
-                                  }));
-                                } else {
-                                  // Em desktop, manter todas abertas
-                                  setCollapsedColumns(prev => ({
-                                    ...prev,
-                                    chat: false
-                                  }));
-                                }
-                              }}
-                                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                                    selectedVendedor?.id === vendedor.id
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'hover:bg-muted'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <div className={`h-2.5 w-2.5 rounded-full ${
-                                      vendedor.status_online ? 'bg-green-500' : 'bg-gray-400'
-                                    }`} />
-                                    <div className="flex-1">
-                                      <div className="font-medium">{vendedor.nome}</div>
-                                      <div className="text-xs opacity-75 mt-1">{vendedor.email}</div>
+                              vendedoresFiltradosPorBusca.map((vendedor) => {
+                                const unreadCount = getUnreadCountForVendedor(vendedor.id);
+                                return (
+                                  <button
+                                    key={vendedor.id}
+                                    onClick={() => {
+                                      setSelectedVendedor(vendedor);
+                                      setSelectedAtendimento(null);
+                                      // Abrir a coluna de chat automaticamente
+                                      if (isMobile) {
+                                        // Em mobile, fechar marcas e manter vendedores
+                                        setCollapsedColumns(prev => ({
+                                          marcas: true,
+                                          vendedores: prev.vendedores,
+                                          chat: false
+                                        }));
+                                      } else {
+                                        // Em desktop, manter todas abertas
+                                        setCollapsedColumns(prev => ({
+                                          ...prev,
+                                          chat: false
+                                        }));
+                                      }
+                                    }}
+                                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                                      selectedVendedor?.id === vendedor.id
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'hover:bg-muted'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className={`h-2.5 w-2.5 rounded-full ${
+                                        vendedor.status_online ? 'bg-green-500' : 'bg-gray-400'
+                                      }`} />
+                                      <div className="flex-1">
+                                        <div className="flex items-center justify-between">
+                                          <div className="font-medium">{vendedor.nome}</div>
+                                          {unreadCount > 0 && (
+                                            <Badge className="ml-2 bg-red-500 text-white h-5 min-w-[20px] flex items-center justify-center px-1.5 text-[10px] font-semibold animate-pulse">
+                                              {unreadCount}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="text-xs opacity-75 mt-1">{vendedor.email}</div>
+                                      </div>
                                     </div>
-                                  </div>
-                                </button>
-                              ))
+                                  </button>
+                                );
+                              })
                             )}
                           </div>
                         </ScrollArea>
@@ -546,7 +586,7 @@ export default function SupervisorAtendimentos() {
             </Card>
 
           {/* Column 3: Chat ao Vivo */}
-          <Card style={getColumnStyle('chat')} className={`transition-all duration-300 ${collapsedColumns.chat ? 'h-screen' : ''}`}>
+          <Card style={getColumnStyle('chat')} className={`transition-all duration-500 ease-in-out ${collapsedColumns.chat ? 'h-screen' : ''}`}>
             {collapsedColumns.chat ? (
               <div className="flex flex-col items-center justify-start h-full py-4 gap-4">
                 <Button
@@ -605,21 +645,28 @@ export default function SupervisorAtendimentos() {
                             </div>
                           ) : (
                             <div className="space-y-1.5 px-2 py-2">
-                              {atendimentosDoVendedor.map((atendimento) => (
-                                <button
-                                  key={atendimento.id}
-                                  onClick={() => setSelectedAtendimento(atendimento)}
-                                  className={`w-full text-left px-2.5 py-2 rounded-md transition-all duration-200 ${
-                                    selectedAtendimento?.id === atendimento.id 
-                                      ? 'border border-primary shadow-sm bg-primary/5' 
-                                      : 'border border-border hover:border-primary/30'
-                                  }`}
-                                >
-                                  <div className="flex items-start justify-between mb-1">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-semibold text-xs truncate">
-                                        {atendimento.clientes?.nome || 'Cliente'}
+                              {atendimentosDoVendedor.map((atendimento) => {
+                                const unreadCount = getUnreadCountForAtendimento(atendimento);
+                                return (
+                                  <button
+                                    key={atendimento.id}
+                                    onClick={() => setSelectedAtendimento(atendimento)}
+                                    className={`w-full text-left px-2.5 py-2 rounded-md transition-all duration-200 relative ${
+                                      selectedAtendimento?.id === atendimento.id 
+                                        ? 'border border-primary shadow-sm bg-primary/5' 
+                                        : 'border border-border hover:border-primary/30'
+                                    }`}
+                                  >
+                                    {unreadCount > 0 && (
+                                      <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-[10px] font-bold animate-pulse shadow-lg">
+                                        {unreadCount}
                                       </div>
+                                    )}
+                                    <div className="flex items-start justify-between mb-1">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-semibold text-xs truncate">
+                                          {atendimento.clientes?.nome || 'Cliente'}
+                                        </div>
                                       {atendimento.clientes?.telefone && (
                                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
                                           <Phone className="h-2.5 w-2.5" />
@@ -642,7 +689,8 @@ export default function SupervisorAtendimentos() {
                                     </Badge>
                                   </div>
                                 </button>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </ScrollArea>
