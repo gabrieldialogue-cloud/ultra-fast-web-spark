@@ -794,6 +794,8 @@ export default function Atendimentos() {
   const handleSendWithFile = async () => {
     if (!selectedFile || !selectedAtendimentoIdVendedor || !vendedorId) return;
 
+    console.log('🚀 INICIANDO envio de arquivo:', selectedFile.name, selectedFile.type);
+
     setIsUploading(true);
     setIsTypingVendedor(false);
 
@@ -802,19 +804,60 @@ export default function Atendimentos() {
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${selectedAtendimentoIdVendedor}/${Date.now()}.${fileExt}`;
       
+      console.log('📤 Fazendo upload para storage:', fileName);
       const { error: uploadError } = await supabase.storage
         .from('chat-files')
         .upload(fileName, selectedFile);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('❌ Erro no upload:', uploadError);
+        throw uploadError;
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('chat-files')
         .getPublicUrl(fileName);
 
-      // Determine attachment type
-      const attachmentType = selectedFile.type.startsWith('image/') ? 'image' : 'document';
+      console.log('✅ Arquivo no storage:', publicUrl);
+
+      // Determine attachment type and media type for WhatsApp
+      const isImage = selectedFile.type.startsWith('image/');
+      const attachmentType = isImage ? 'image' : 'document';
+      const mediaType = isImage ? 'image' : 'document';
+
+      // Get client phone from atendimento
+      const atendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
+      const clienteTelefone = atendimento?.clientes?.telefone;
+
+      if (!clienteTelefone) {
+        throw new Error('Telefone do cliente não encontrado');
+      }
+
+      console.log('📞 CHAMANDO whatsapp-send:', { 
+        mediaType, 
+        to: clienteTelefone, 
+        mediaUrl: publicUrl,
+        filename: selectedFile.name
+      });
+
+      // Send via WhatsApp
+      const { data: whatsappData, error: whatsappError } = await supabase.functions.invoke('whatsapp-send', {
+        body: {
+          to: clienteTelefone,
+          mediaType: mediaType,
+          mediaUrl: publicUrl,
+          filename: selectedFile.name,
+          caption: messageInput.trim() || (isImage ? undefined : selectedFile.name),
+        },
+      });
+
+      console.log('📨 RESPOSTA whatsapp-send:', { data: whatsappData, error: whatsappError });
+
+      if (whatsappError) {
+        console.error('❌ Erro ao enviar via WhatsApp:', whatsappError);
+        throw whatsappError;
+      }
 
       // Save message with attachment
       const { error: messageError } = await supabase
@@ -823,12 +866,19 @@ export default function Atendimentos() {
           atendimento_id: selectedAtendimentoIdVendedor,
           remetente_id: vendedorId,
           remetente_tipo: 'vendedor',
-          conteudo: messageInput.trim() || '',
+          conteudo: messageInput.trim() || (isImage ? '[Imagem]' : `[Documento: ${selectedFile.name}]`),
           attachment_url: publicUrl,
-          attachment_type: attachmentType
+          attachment_type: attachmentType,
+          attachment_filename: selectedFile.name,
+          whatsapp_message_id: whatsappData?.messageId,
         });
 
-      if (messageError) throw messageError;
+      if (messageError) {
+        console.error('❌ Erro ao salvar mensagem:', messageError);
+        throw messageError;
+      }
+
+      console.log('✅ Arquivo enviado com sucesso!');
 
       setMessageInput("");
       setSelectedFile(null);
@@ -843,8 +893,8 @@ export default function Atendimentos() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     } catch (error) {
-      console.error('Erro ao enviar arquivo:', error);
-      toast.error("Erro ao enviar arquivo. Tente novamente.");
+      console.error('💥 Erro ao enviar arquivo:', error);
+      toast.error(`Erro ao enviar arquivo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsUploading(false);
       // Manter foco no input para permitir envio de múltiplas mensagens
