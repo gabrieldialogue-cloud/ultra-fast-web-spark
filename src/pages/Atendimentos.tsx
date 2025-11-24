@@ -18,7 +18,7 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { MediaGallery } from "@/components/chat/MediaGallery";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, X, Image as ImageIcon, File, Images } from "lucide-react";
+import { Send, Paperclip, X, Image as ImageIcon, File, Images, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { compressImage, shouldCompress } from "@/lib/imageCompression";
@@ -26,6 +26,7 @@ import { useTypingBroadcast } from "@/hooks/useTypingBroadcast";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { useLastMessages } from "@/hooks/useLastMessages";
+import { useClientPresence } from "@/hooks/useClientPresence";
 
 type DetailType = 
   | "ia_respondendo"
@@ -97,6 +98,12 @@ export default function Atendimentos() {
 
   // Hook para últimas mensagens
   const { lastMessages } = useLastMessages({
+    atendimentos: atendimentosVendedor,
+    enabled: !isSupervisor
+  });
+
+  // Hook para presença dos clientes (online e digitando)
+  const { clientPresence } = useClientPresence({
     atendimentos: atendimentosVendedor,
     enabled: !isSupervisor
   });
@@ -1421,37 +1428,61 @@ export default function Atendimentos() {
                                                  <User className="h-5 w-5 text-accent" />
                                                </div>
                                              )}
-                                             <div className="flex-1 min-w-0">
-                                               <span className="font-semibold text-sm block truncate">
-                                                 {atendimento.clientes?.push_name || atendimento.clientes?.nome || "Cliente"}
-                                               </span>
-                                               {lastMessages[atendimento.id] ? (
-                                                 <div className="flex items-start gap-1.5 mt-1">
-                                                   {lastMessages[atendimento.id].attachmentType && (
-                                                     lastMessages[atendimento.id].attachmentType === 'image' ? (
-                                                       <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-                                                     ) : (
-                                                       <File className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-                                                     )
-                                                   )}
-                                                   <span className="text-xs text-muted-foreground line-clamp-2 break-words">
-                                                     {lastMessages[atendimento.id].remetenteTipo === 'vendedor' && (
-                                                       <span className="font-medium">Você: </span>
-                                                     )}
-                                                     {lastMessages[atendimento.id].attachmentType 
-                                                       ? lastMessages[atendimento.id].attachmentType === 'image' 
-                                                         ? 'Imagem' 
-                                                         : 'Documento'
-                                                       : (lastMessages[atendimento.id].conteudo?.substring(0, 60) || 'Mensagem') + 
-                                                         (lastMessages[atendimento.id].conteudo?.length > 60 ? '...' : '')}
-                                                   </span>
-                                                 </div>
-                                               ) : (
-                                                 <span className="text-xs text-muted-foreground mt-1 block">
-                                                   Sem mensagens ainda
-                                                 </span>
-                                               )}
-                                             </div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-semibold text-sm block truncate">
+                                                    {atendimento.clientes?.push_name || atendimento.clientes?.nome || "Cliente"}
+                                                  </span>
+                                                  {clientPresence[atendimento.id]?.isTyping && (
+                                                    <span className="text-[10px] text-success font-medium flex items-center gap-1">
+                                                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                                                      digitando...
+                                                    </span>
+                                                  )}
+                                                  {!clientPresence[atendimento.id]?.isTyping && clientPresence[atendimento.id]?.isOnline && (
+                                                    <span className="inline-block h-2 w-2 rounded-full bg-success" title="Online" />
+                                                  )}
+                                                </div>
+                                                {lastMessages[atendimento.id] ? (
+                                                  <div className="flex items-center justify-between gap-2 mt-1">
+                                                    <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                                                      {lastMessages[atendimento.id].attachmentType && (
+                                                        lastMessages[atendimento.id].attachmentType === 'image' ? (
+                                                          <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                                        ) : (
+                                                          <File className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                                        )
+                                                      )}
+                                                      <span className="text-xs text-muted-foreground line-clamp-2 break-words">
+                                                        {lastMessages[atendimento.id].remetenteTipo === 'vendedor' && (
+                                                          <span className="font-medium">Você: </span>
+                                                        )}
+                                                        {lastMessages[atendimento.id].attachmentType 
+                                                          ? lastMessages[atendimento.id].attachmentType === 'image' 
+                                                            ? 'Imagem' 
+                                                            : 'Documento'
+                                                          : (lastMessages[atendimento.id].conteudo?.substring(0, 60) || 'Mensagem') + 
+                                                            (lastMessages[atendimento.id].conteudo?.length > 60 ? '...' : '')}
+                                                      </span>
+                                                    </div>
+                                                    {lastMessages[atendimento.id].remetenteTipo === 'vendedor' && (
+                                                      <span className="flex items-center shrink-0">
+                                                        {lastMessages[atendimento.id].readAt ? (
+                                                          <CheckCheck className="h-3 w-3 text-success" />
+                                                        ) : lastMessages[atendimento.id].deliveredAt ? (
+                                                          <CheckCheck className="h-3 w-3 opacity-60" />
+                                                        ) : (
+                                                          <Check className="h-3 w-3 opacity-60" />
+                                                        )}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                ) : (
+                                                  <span className="text-xs text-muted-foreground mt-1 block">
+                                                    Sem mensagens ainda
+                                                  </span>
+                                                )}
+                                              </div>
                                            </div>
                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                              {unreadCountsVendedor[atendimento.id] > 0 && (

@@ -8,6 +8,8 @@ interface LastMessage {
   createdAt: string;
   remetenteTipo: string;
   attachmentCount?: number;
+  readAt?: string | null;
+  deliveredAt?: string | null;
 }
 
 interface UseLastMessagesProps {
@@ -27,7 +29,7 @@ export function useLastMessages({ atendimentos, enabled }: UseLastMessagesProps)
       // Get last message
       const { data: lastMsg } = await supabase
         .from('mensagens')
-        .select('conteudo, attachment_type, created_at, remetente_tipo')
+        .select('conteudo, attachment_type, created_at, remetente_tipo, read_at, delivered_at')
         .eq('atendimento_id', atendimento.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -47,7 +49,9 @@ export function useLastMessages({ atendimentos, enabled }: UseLastMessagesProps)
           attachmentType: lastMsg.attachment_type,
           createdAt: lastMsg.created_at,
           remetenteTipo: lastMsg.remetente_tipo,
-          attachmentCount: attachmentCount || 0
+          attachmentCount: attachmentCount || 0,
+          readAt: lastMsg.read_at,
+          deliveredAt: lastMsg.delivered_at
         };
       }
     }
