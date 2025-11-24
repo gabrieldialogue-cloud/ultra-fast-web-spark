@@ -542,56 +542,56 @@ export default function SupervisorAtendimentos() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-0 h-[calc(100vh-180px)]">
+                    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0 h-[calc(100vh-180px)]">
                       {/* Lista de Conversas */}
                       <div className="border-r">
-                        <div className="p-3 border-b">
-                          <h3 className="text-sm font-semibold flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            Conversas Ativas ({atendimentosDoVendedor.length})
+                        <div className="p-2 border-b">
+                          <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            Conversas ({atendimentosDoVendedor.length})
                           </h3>
                         </div>
                         <ScrollArea className="h-[calc(100vh-240px)]">
                           {atendimentosDoVendedor.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full px-4 py-12 text-muted-foreground">
-                              <MessageSquare className="h-10 w-10 mb-3 opacity-50" />
-                              <p className="text-sm">Nenhum atendimento ativo</p>
+                            <div className="flex flex-col items-center justify-center h-full px-3 py-8 text-muted-foreground">
+                              <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
+                              <p className="text-xs">Nenhum atendimento</p>
                             </div>
                           ) : (
-                            <div className="space-y-2 px-3 py-2">
+                            <div className="space-y-1.5 px-2 py-2">
                               {atendimentosDoVendedor.map((atendimento) => (
                                 <button
                                   key={atendimento.id}
                                   onClick={() => setSelectedAtendimento(atendimento)}
-                                  className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 ${
+                                  className={`w-full text-left px-2.5 py-2 rounded-md transition-all duration-200 ${
                                     selectedAtendimento?.id === atendimento.id 
-                                      ? 'border-2 border-primary shadow-md bg-primary/5' 
-                                      : 'border-2 border-border hover:border-primary/30 hover:shadow-sm'
+                                      ? 'border border-primary shadow-sm bg-primary/5' 
+                                      : 'border border-border hover:border-primary/30'
                                   }`}
                                 >
-                                  <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-start justify-between mb-1">
                                     <div className="flex-1 min-w-0">
-                                      <div className="font-semibold text-sm truncate">
+                                      <div className="font-semibold text-xs truncate">
                                         {atendimento.clientes?.nome || 'Cliente'}
                                       </div>
                                       {atendimento.clientes?.telefone && (
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                          <Phone className="h-3 w-3" />
+                                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                                          <Phone className="h-2.5 w-2.5" />
                                           <span>{atendimento.clientes.telefone}</span>
                                         </div>
                                       )}
                                       {atendimento.mensagens && atendimento.mensagens.length > 0 && (
-                                        <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                        <div className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
                                           {atendimento.mensagens[atendimento.mensagens.length - 1].conteudo}
                                         </div>
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="text-xs text-muted-foreground truncate flex-1">
+                                  <div className="flex items-center justify-between gap-1.5">
+                                    <p className="text-[10px] text-muted-foreground truncate flex-1">
                                       {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                     </p>
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge variant="outline" className="text-[10px] py-0 px-1.5">
                                       {atendimento.status.replace(/_/g, ' ')}
                                     </Badge>
                                   </div>
