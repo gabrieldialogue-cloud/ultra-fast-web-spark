@@ -7,7 +7,7 @@ interface ConnectionArrowsProps {
   selectedCliente: { id: string } | null;
 }
 
-interface CurvedArrowData {
+interface ArrowData {
   startX: number;
   startY: number;
   endX: number;
@@ -15,11 +15,11 @@ interface CurvedArrowData {
 }
 
 export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedCliente }: ConnectionArrowsProps) {
-  const [marcaToVendedor, setMarcaToVendedor] = useState<CurvedArrowData | null>(null);
-  const [vendedorToCliente, setVendedorToCliente] = useState<CurvedArrowData | null>(null);
+  const [marcaToVendedor, setMarcaToVendedor] = useState<ArrowData | null>(null);
+  const [vendedorToCliente, setVendedorToCliente] = useState<ArrowData | null>(null);
 
   const calculatePositions = useCallback(() => {
-    // Seta Marca → Vendedor (apenas se ambos selecionados)
+    // Seta Marca → Vendedor
     if (selectedMarca && selectedVendedor) {
       const marcaElement = document.querySelector(`[data-marca="${selectedMarca}"]`);
       const vendedorElement = document.querySelector(`[data-vendedor-id="${selectedVendedor.id}"]`);
@@ -28,20 +28,18 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
         const marcaRect = marcaElement.getBoundingClientRect();
         const vendedorRect = vendedorElement.getBoundingClientRect();
 
-        const startX = marcaRect.right;
-        const startY = marcaRect.top + marcaRect.height / 2;
-        const endX = vendedorRect.left;
-        const endY = vendedorRect.top + vendedorRect.height / 2;
-
-        if (endX > startX) {
-          setMarcaToVendedor({ startX, startY, endX, endY });
-        }
+        setMarcaToVendedor({
+          startX: marcaRect.right,
+          startY: marcaRect.top + marcaRect.height / 2,
+          endX: vendedorRect.left,
+          endY: vendedorRect.top + vendedorRect.height / 2,
+        });
       }
     } else {
       setMarcaToVendedor(null);
     }
 
-    // Seta Vendedor → Cliente (apenas se ambos selecionados)
+    // Seta Vendedor → Cliente
     if (selectedVendedor && selectedCliente) {
       const vendedorElement = document.querySelector(`[data-vendedor-id="${selectedVendedor.id}"]`);
       const clienteElement = document.querySelector(`[data-cliente-id="${selectedCliente.id}"]`);
@@ -50,14 +48,12 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
         const vendedorRect = vendedorElement.getBoundingClientRect();
         const clienteRect = clienteElement.getBoundingClientRect();
 
-        const startX = vendedorRect.right;
-        const startY = vendedorRect.top + vendedorRect.height / 2;
-        const endX = clienteRect.left;
-        const endY = clienteRect.top + clienteRect.height / 2;
-
-        if (endX > startX) {
-          setVendedorToCliente({ startX, startY, endX, endY });
-        }
+        setVendedorToCliente({
+          startX: vendedorRect.right,
+          startY: vendedorRect.top + vendedorRect.height / 2,
+          endX: clienteRect.left,
+          endY: clienteRect.top + clienteRect.height / 2,
+        });
       }
     } else {
       setVendedorToCliente(null);
@@ -83,21 +79,7 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
     };
   }, [calculatePositions]);
 
-  const renderCurvedArrow = (data: CurvedArrowData, key: string) => {
-    const width = data.endX - data.startX;
-    const height = data.endY - data.startY;
-    
-    // Ajustar a intensidade da curva baseado na distância vertical
-    const curveRadius = Math.max(Math.abs(height) * 1.5, 60);
-    
-    // Criar path SVG para curva suave
-    const startControlX = data.startX + width * 0.25;
-    const startControlY = data.startY;
-    const endControlX = data.endX - width * 0.25;
-    const endControlY = data.endY;
-    
-    const svgPath = `M ${data.startX} ${data.startY} C ${startControlX} ${startControlY}, ${endControlX} ${endControlY}, ${data.endX} ${data.endY}`;
-
+  const renderStraightArrow = (data: ArrowData, key: string) => {
     return (
       <svg
         key={key}
@@ -105,98 +87,103 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
         style={{ width: '100vw', height: '100vh', zIndex: 10 }}
       >
         <defs>
-          {/* Gradiente para a linha */}
-          <linearGradient id={`gradient-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" className="text-primary" style={{ stopColor: 'currentColor', stopOpacity: 0.8 }} />
-            <stop offset="50%" className="text-primary" style={{ stopColor: 'currentColor', stopOpacity: 1 }} />
-            <stop offset="100%" className="text-primary" style={{ stopColor: 'currentColor', stopOpacity: 0.8 }} />
-          </linearGradient>
-
-          {/* Marker para a seta */}
           <marker
-            id={`arrowhead-${key}`}
-            markerWidth="12"
-            markerHeight="12"
-            refX="10"
-            refY="6"
+            id={`arrow-${key}`}
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="5"
             orient="auto"
           >
             <path
-              d="M2,2 L2,10 L10,6 z"
+              d="M0,0 L0,10 L10,5 z"
               className="fill-primary"
             />
           </marker>
+
+          <linearGradient id={`grad-${key}`} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 0.6 }} />
+            <stop offset="100%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
+          </linearGradient>
         </defs>
 
-        {/* Glow de fundo */}
-        <path
-          d={svgPath}
-          fill="none"
+        {/* Linha de glow */}
+        <line
+          x1={data.startX}
+          y1={data.startY}
+          x2={data.endX}
+          y2={data.endY}
           className="stroke-primary/20"
-          strokeWidth="8"
+          strokeWidth="6"
           strokeLinecap="round"
-          style={{
-            filter: 'blur(4px)',
-          }}
+          style={{ filter: 'blur(3px)' }}
         />
 
-        {/* Linha principal com animação de desenho */}
-        <path
-          d={svgPath}
-          fill="none"
-          stroke={`url(#gradient-${key})`}
+        {/* Linha principal com animação */}
+        <line
+          x1={data.startX}
+          y1={data.startY}
+          x2={data.endX}
+          y2={data.endY}
+          stroke={`url(#grad-${key})`}
           strokeWidth="3"
           strokeLinecap="round"
-          markerEnd={`url(#arrowhead-${key})`}
-          className="animate-draw-path"
+          markerEnd={`url(#arrow-${key})`}
           style={{
             strokeDasharray: 1000,
             strokeDashoffset: 1000,
-            animation: 'drawPath 1.5s ease-out forwards',
+            animation: 'drawLine 1s ease-out forwards',
           }}
         />
 
-        {/* Partícula animada viajando pela linha */}
+        {/* Partícula viajante */}
         <circle
-          r="5"
-          className="fill-primary animate-pulse"
+          r="4"
+          className="fill-primary"
+          style={{
+            animation: 'fadeParticle 2s linear infinite',
+            animationDelay: '1s',
+          }}
         >
           <animateMotion
             dur="2s"
             repeatCount="indefinite"
-            path={svgPath}
-            begin="1.5s"
-          />
-          <animate
-            attributeName="opacity"
-            values="0;1;1;0"
-            dur="2s"
-            repeatCount="indefinite"
-            begin="1.5s"
-          />
+            begin="1s"
+          >
+            <mpath href={`#path-${key}`} />
+          </animateMotion>
         </circle>
 
-        {/* Ponto inicial brilhante */}
+        {/* Path invisível para a partícula seguir */}
+        <path
+          id={`path-${key}`}
+          d={`M ${data.startX} ${data.startY} L ${data.endX} ${data.endY}`}
+          fill="none"
+          stroke="none"
+        />
+
+        {/* Ponto inicial */}
         <circle
           cx={data.startX}
           cy={data.startY}
-          r="4"
-          className="fill-primary animate-pulse"
+          r="5"
+          className="fill-primary"
           style={{
-            filter: 'drop-shadow(0 0 6px hsl(var(--primary)))',
+            filter: 'drop-shadow(0 0 8px hsl(var(--primary)))',
+            animation: 'pulse 2s ease-in-out infinite',
           }}
         />
 
-        {/* Ponto final brilhante */}
+        {/* Ponto final */}
         <circle
           cx={data.endX}
           cy={data.endY}
-          r="4"
+          r="5"
           className="fill-primary"
           style={{
-            filter: 'drop-shadow(0 0 6px hsl(var(--primary)))',
-            animation: 'fadeInScale 0.3s ease-out 1.5s forwards',
+            filter: 'drop-shadow(0 0 8px hsl(var(--primary)))',
             opacity: 0,
+            animation: 'fadeInPoint 0.3s ease-out 1s forwards',
           }}
         />
       </svg>
@@ -207,17 +194,17 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
 
   return (
     <>
-      {marcaToVendedor && renderCurvedArrow(marcaToVendedor, 'marca-vendedor')}
-      {vendedorToCliente && renderCurvedArrow(vendedorToCliente, 'vendedor-cliente')}
+      {marcaToVendedor && renderStraightArrow(marcaToVendedor, 'marca-vendedor')}
+      {vendedorToCliente && renderStraightArrow(vendedorToCliente, 'vendedor-cliente')}
 
       <style>{`
-        @keyframes drawPath {
+        @keyframes drawLine {
           to {
             stroke-dashoffset: 0;
           }
         }
 
-        @keyframes fadeInScale {
+        @keyframes fadeInPoint {
           from {
             opacity: 0;
             transform: scale(0);
@@ -225,6 +212,26 @@ export function ConnectionArrows({ selectedMarca, selectedVendedor, selectedClie
           to {
             opacity: 1;
             transform: scale(1);
+          }
+        }
+
+        @keyframes fadeParticle {
+          0%, 100% {
+            opacity: 0;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.1);
           }
         }
       `}</style>
