@@ -98,48 +98,63 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
   // Show preview with waveform
   if (audioPreview) {
     return (
-      <Card className="fixed bottom-24 left-4 right-4 md:left-auto md:right-4 md:w-96 p-4 shadow-lg z-50 bg-card border-border">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Preview do Áudio</p>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleCancel}
-              className="h-8 w-8"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4 px-4 pointer-events-none">
+        <Card className="w-full max-w-md p-4 shadow-2xl bg-card border-2 border-border pointer-events-auto animate-in slide-in-from-bottom-4 duration-300">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Mic className="h-4 w-4 text-destructive" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">Preview do Áudio</p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleCancel}
+                className="h-8 w-8 hover:bg-destructive/10"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              <AudioWaveform audioBlob={audioPreview} className="bg-muted/50 rounded-lg" />
+              <audio controls className="w-full h-10 rounded-lg">
+                <source src={URL.createObjectURL(audioPreview)} type="audio/webm" />
+              </audio>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                className="flex-1 hover:bg-muted"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSend}
+                disabled={isSending}
+                className="flex-1 bg-success hover:bg-success/90 text-white"
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Enviar Áudio
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-          <AudioWaveform audioBlob={audioPreview} />
-          <audio controls className="w-full h-10">
-            <source src={URL.createObjectURL(audioPreview)} type="audio/webm" />
-          </audio>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSend}
-              disabled={isSending}
-              className="flex-1 bg-success hover:bg-success/90"
-            >
-              {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     );
   }
 

@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck, Clock, Mic } from "lucide-react";
+import { Bot, User, Headphones, UserCircle, File, Download, FileText, FileSpreadsheet, FileImage, Archive, Check, CheckCheck, Clock, Mic, FileType } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ClientAvatar } from "@/components/ui/client-avatar";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatMessageProps {
   remetenteTipo: "ia" | "cliente" | "vendedor" | "supervisor";
@@ -24,6 +26,7 @@ interface ChatMessageProps {
   clienteProfilePicture?: string | null;
   status?: "enviando" | "enviada" | "entregue" | "lida";
   transcription?: string | null;
+  messageId?: string;
 }
 
 const remetenteConfig = {
@@ -68,11 +71,15 @@ export function ChatMessage({
   clientePushName,
   clienteProfilePicture,
   status,
-  transcription
+  transcription,
+  messageId
 }: ChatMessageProps) {
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [localTranscription, setLocalTranscription] = useState(transcription);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { toast } = useToast();
   const config = remetenteConfig[remetenteTipo];
   const Icon = config.icon;
 
@@ -86,11 +93,60 @@ export function ChatMessage({
     }
   }, [playbackRate]);
 
+  useEffect(() => {
+    setLocalTranscription(transcription);
+  }, [transcription]);
+
   const handleSpeedChange = () => {
     const speeds = [1, 1.5, 2];
     const currentIndex = speeds.indexOf(playbackRate);
     const nextIndex = (currentIndex + 1) % speeds.length;
     setPlaybackRate(speeds[nextIndex]);
+  };
+
+  const handleTranscribe = async () => {
+    if (!attachmentUrl || !messageId) return;
+
+    setIsTranscribing(true);
+    try {
+      // Fetch audio file and convert to base64
+      const response = await fetch(attachmentUrl);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+      // Call transcription function
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+        body: { audio: base64Audio },
+      });
+
+      if (error) throw error;
+
+      if (data?.text) {
+        // Update message with transcription
+        const { error: updateError } = await supabase
+          .from('mensagens')
+          .update({ conteudo: data.text })
+          .eq('id', messageId);
+
+        if (updateError) throw updateError;
+
+        setLocalTranscription(data.text);
+        toast({
+          title: "Áudio transcrito",
+          description: "A transcrição foi adicionada com sucesso.",
+        });
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+      toast({
+        title: "Erro na transcrição",
+        description: "Não foi possível transcrever o áudio.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   // Highlight text function
@@ -202,24 +258,47 @@ export function ChatMessage({
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/30">
                 <Mic className="h-5 w-5" />
               </div>
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 space-y-2">
                 <audio ref={audioRef} controls className="w-full h-8" style={{ maxWidth: '220px' }}>
                   <source src={attachmentUrl} type="audio/ogg" />
                   <source src={attachmentUrl} type="audio/webm" />
                   <source src={attachmentUrl} type="audio/mpeg" />
                   Seu navegador não suporta o elemento de áudio.
                 </audio>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSpeedChange}
-                  className="h-6 text-xs px-2"
-                >
-                  {playbackRate}x
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSpeedChange}
+                    className="h-7 text-xs px-2"
+                  >
+                    {playbackRate}x
+                  </Button>
+                  {!localTranscription && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTranscribe}
+                      disabled={isTranscribing}
+                      className="h-7 text-xs px-2"
+                    >
+                      {isTranscribing ? (
+                        <>
+                          <Clock className="h-3 w-3 mr-1 animate-spin" />
+                          Transcrevendo...
+                        </>
+                      ) : (
+                        <>
+                          <FileType className="h-3 w-3 mr-1" />
+                          Transcrever
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-            {transcription && (
+            {localTranscription && localTranscription !== '[Áudio]' && (
               <div
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm max-w-[320px] border",
@@ -232,7 +311,7 @@ export function ChatMessage({
                 <div className="flex items-center gap-2 mb-1">
                   <Badge variant="outline" className="text-xs">Transcrição</Badge>
                 </div>
-                <p className="text-xs leading-relaxed">{transcription}</p>
+                <p className="text-xs leading-relaxed">{localTranscription}</p>
               </div>
             )}
           </div>

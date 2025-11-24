@@ -248,6 +248,7 @@ export function HistoricoAtendimentos({ vendedoresAtribuidos }: HistoricoAtendim
                               atendimento.mensagens.map((mensagem) => (
                                 <ChatMessage
                                   key={mensagem.id}
+                                  messageId={mensagem.id}
                                   remetenteTipo={mensagem.remetente_tipo as any}
                                   conteudo={mensagem.conteudo}
                                   createdAt={mensagem.created_at}

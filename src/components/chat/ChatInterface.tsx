@@ -92,24 +92,6 @@ export function ChatInterface({
         .from('chat-audios')
         .getPublicUrl(filePath);
 
-      // Transcribe audio
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
-      let transcriptionText = '[Áudio]';
-      try {
-        const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('transcribe-audio', {
-          body: { audio: base64Audio },
-        });
-
-        if (!transcriptionError && transcriptionData?.text) {
-          transcriptionText = transcriptionData.text;
-        }
-      } catch (transcriptionErr) {
-        console.error('Transcription failed:', transcriptionErr);
-        // Continue even if transcription fails
-      }
-
       // Send audio via WhatsApp
       const { data, error } = await supabase.functions.invoke('whatsapp-send', {
         body: {
@@ -120,12 +102,12 @@ export function ChatInterface({
 
       if (error) throw error;
 
-      // Save message to database with transcription
+      // Save message to database without transcription
       const { error: dbError } = await supabase
         .from('mensagens')
         .insert({
           atendimento_id: atendimentoId,
-          conteudo: transcriptionText,
+          conteudo: '[Áudio]',
           remetente_tipo: 'vendedor',
           remetente_id: vendedorId,
           attachment_url: publicUrl,
@@ -176,6 +158,7 @@ export function ChatInterface({
               {mensagens.map((msg) => (
                 <ChatMessage
                   key={msg.id}
+                  messageId={msg.id}
                   remetenteTipo={msg.remetente_tipo}
                   conteudo={msg.conteudo}
                   createdAt={msg.created_at}

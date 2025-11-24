@@ -144,6 +144,7 @@ export function AtendimentoChatModal({
                 mensagens.map((mensagem) => (
                   <ChatMessage
                     key={mensagem.id}
+                    messageId={mensagem.id}
                     remetenteTipo={mensagem.remetente_tipo}
                     conteudo={mensagem.conteudo}
                     createdAt={mensagem.created_at}

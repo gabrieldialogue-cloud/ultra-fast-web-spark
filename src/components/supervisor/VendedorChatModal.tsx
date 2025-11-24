@@ -190,6 +190,7 @@ xVbta7qpVURDEik4fO+biEFLILP89WGMgYcZrjv6YxGDQhRq+Tvs3caCT2P1/LMeS0GJnvL8dmNQQcVW
                       {mensagens.map((mensagem) => (
                         <ChatMessage
                           key={mensagem.id}
+                          messageId={mensagem.id}
                           remetenteTipo={mensagem.remetente_tipo}
                           conteudo={mensagem.conteudo}
                           createdAt={mensagem.created_at}
