@@ -1594,8 +1594,18 @@ export default function Atendimentos() {
                                   ref={scrollRef}
                                 >
                                   {/* Textura de fundo aplicada diretamente abaixo das mensagens */}
-                                  <div className="h-full w-full rounded-xl border border-primary/10 bg-card/95 backdrop-blur-sm p-3">
-                                      <div className="h-full w-full px-2 py-3">
+                                  <div 
+                                    className="h-full w-full rounded-xl border border-primary/10 bg-card/95 backdrop-blur-sm p-3"
+                                    style={{
+                                      backgroundImage:
+                                        "linear-gradient(to right, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
+                                        "linear-gradient(to bottom, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
+                                        "radial-gradient(circle at 20% 20%, hsl(var(--primary)/0.20) 0, transparent 55%)," +
+                                        "radial-gradient(circle at 80% 80%, hsl(var(--accent)/0.20) 0, transparent 55%)",
+                                      backgroundSize: "18px 18px, 18px 18px, 100% 100%, 100% 100%",
+                                    }}
+                                  >
+                                    <div className="h-full w-full px-2 py-3">
                                         {!selectedAtendimentoIdVendedor ? (
                                           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                             <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
@@ -1675,10 +1685,9 @@ export default function Atendimentos() {
                                             <div ref={messagesEndRef} />
                                           </div>
                                         )}
-                                       </div>
-                                     </div>
-                                   </div>
-                                </ScrollArea>
+                                      </div>
+                                    </div>
+                                  </ScrollArea>
                                 
                                 {/* Input Area */}
                                 {selectedAtendimentoIdVendedor && (
