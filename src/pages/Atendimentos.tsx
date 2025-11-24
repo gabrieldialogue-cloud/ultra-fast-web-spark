@@ -76,6 +76,7 @@ export default function Atendimentos() {
     messages: mensagensVendedor,
     loading: loadingMessages,
     isClientTyping,
+    isLoadingOlder,
     notifyMessageChange,
     addOptimisticMessage,
     updateMessage,
@@ -481,7 +482,7 @@ export default function Atendimentos() {
 
   // Auto scroll to bottom when atendimento is selected or messages change
   useEffect(() => {
-    if (!isSupervisor && selectedAtendimentoIdVendedor && mensagensVendedor.length > 0) {
+    if (!isSupervisor && selectedAtendimentoIdVendedor && mensagensVendedor.length > 0 && !isLoadingOlder) {
       // Usar múltiplos requestAnimationFrame para garantir que o DOM está atualizado
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -491,7 +492,7 @@ export default function Atendimentos() {
         });
       });
     }
-  }, [selectedAtendimentoIdVendedor, mensagensVendedor.length, isSupervisor]);
+  }, [selectedAtendimentoIdVendedor, mensagensVendedor.length, isSupervisor, isLoadingOlder]);
 
   // Also scroll when new message arrives
   useEffect(() => {

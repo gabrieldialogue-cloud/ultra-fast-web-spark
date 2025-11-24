@@ -35,6 +35,7 @@ export function useRealtimeMessages({
   const [isClientTyping, setIsClientTyping] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [oldestMessageDate, setOldestMessageDate] = useState<string | null>(null);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -117,6 +118,7 @@ export function useRealtimeMessages({
   const loadMoreMessages = useCallback(async () => {
     if (!atendimentoId || !oldestMessageDate || !hasMoreMessages || loading) return;
 
+    setIsLoadingOlder(true);
     setLoading(true);
     try {
       const { data, error, count } = await supabase
@@ -160,6 +162,10 @@ export function useRealtimeMessages({
       console.error('Erro ao carregar mensagens antigas:', error);
     } finally {
       setLoading(false);
+      // Pequeno delay para garantir que o DOM foi atualizado antes de resetar o flag
+      setTimeout(() => {
+        setIsLoadingOlder(false);
+      }, 100);
     }
   }, [atendimentoId, oldestMessageDate, hasMoreMessages, loading, messages.length]);
 
@@ -285,6 +291,7 @@ export function useRealtimeMessages({
     messages,
     loading,
     isClientTyping,
+    isLoadingOlder,
     fetchMessages,
     notifyMessageChange,
     addOptimisticMessage,

@@ -50,7 +50,17 @@ export function MediaGallery({ mensagens, onLoadMore, hasMoreMedia = false }: Me
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <FileText className="h-12 w-12 mb-4 opacity-50" />
-        <p className="text-sm">Nenhuma mídia compartilhada ainda</p>
+        <p className="text-sm mb-4">Nenhuma mídia compartilhada ainda</p>
+        {hasMoreMedia && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onLoadMore}
+            className="text-xs"
+          >
+            Carregar mídias antigas
+          </Button>
+        )}
       </div>
     );
   }
