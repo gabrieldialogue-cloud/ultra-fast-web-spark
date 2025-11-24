@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, Square, Loader2, Send, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AudioWaveform } from "./AudioWaveform";
+import { LiveAudioVisualizer } from "./LiveAudioVisualizer";
 import { Card } from "@/components/ui/card";
 import Recorder from "opus-recorder";
 
@@ -184,24 +185,12 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
               </div>
             </div>
 
-            {/* Recording Animation */}
+            {/* Live Audio Visualization */}
             <div className="px-5 py-8">
-              <div className="relative p-6 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 shadow-inner">
-                <div className="flex items-center justify-center gap-2 h-24">
-                  {[...Array(20)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-1 bg-gradient-to-t from-destructive to-destructive/40 rounded-full animate-pulse"
-                      style={{
-                        height: `${20 + Math.random() * 60}%`,
-                        animationDelay: `${i * 0.1}s`,
-                        animationDuration: `${0.8 + Math.random() * 0.4}s`
-                      }}
-                    />
-                  ))}
-                </div>
+              <div className="relative p-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 shadow-inner">
+                <LiveAudioVisualizer stream={streamRef.current} isRecording={isRecording} />
                 <p className="text-center text-sm text-muted-foreground mt-4">
-                  Fale agora... Suas ondas de voz aparecem aqui
+                  Fale agora... Suas ondas de voz aparecem em tempo real
                 </p>
               </div>
             </div>
