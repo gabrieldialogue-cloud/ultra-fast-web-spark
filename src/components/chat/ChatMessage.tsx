@@ -130,7 +130,7 @@ export function ChatMessage({
   }, []);
 
   const handleSpeedChange = () => {
-    const speeds = [1, 1.5, 2];
+    const speeds = [1, 1.25, 1.5, 1.75, 2];
     const currentIndex = speeds.indexOf(playbackRate);
     const nextIndex = (currentIndex + 1) % speeds.length;
     setPlaybackRate(speeds[nextIndex]);
