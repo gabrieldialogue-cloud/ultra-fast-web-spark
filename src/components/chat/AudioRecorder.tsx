@@ -28,8 +28,17 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
         } 
       });
 
+      // Try to use OGG format (preferred by WhatsApp), fallback to WebM if not supported
+      let mimeType = 'audio/ogg;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm;codecs=opus';
+        console.warn('OGG format not supported, falling back to WebM');
+      }
+      
+      console.log('Recording with mime type:', mimeType);
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
+        mimeType: mimeType,
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -42,7 +51,9 @@ export function AudioRecorder({ onAudioRecorded, disabled }: AudioRecorderProps)
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+        // Use the same mimeType that was used for recording
+        const recordedMimeType = mediaRecorder.mimeType;
+        const audioBlob = new Blob(audioChunksRef.current, { type: recordedMimeType });
         
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());

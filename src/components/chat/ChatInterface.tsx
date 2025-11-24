@@ -73,14 +73,18 @@ export function ChatInterface({
 
   const handleAudioRecorded = async (audioBlob: Blob) => {
     try {
+      // Determine file extension based on blob type
+      const blobType = audioBlob.type;
+      const extension = blobType.includes('ogg') ? 'ogg' : 'webm';
+      
       // Upload audio to Supabase Storage
-      const fileName = `${Date.now()}-audio.webm`;
+      const fileName = `${Date.now()}-audio.${extension}`;
       const filePath = `${atendimentoId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat-audios')
         .upload(filePath, audioBlob, {
-          contentType: 'audio/webm;codecs=opus',
+          contentType: blobType,
         });
 
       if (uploadError) {
