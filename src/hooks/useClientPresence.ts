@@ -18,18 +18,36 @@ export function useClientPresence({ atendimentos, enabled }: UseClientPresencePr
   useEffect(() => {
     if (!enabled || atendimentos.length === 0) return;
 
-    // Initialize presence for all atendimentos
-    const initialPresence: Record<string, ClientPresence> = {};
-    atendimentos.forEach(atendimento => {
-      initialPresence[atendimento.id] = {
-        atendimentoId: atendimento.id,
-        isOnline: false,
-        isTyping: false
-      };
-    });
-    setClientPresence(initialPresence);
+    const updatePresenceFromActivity = async () => {
+      const presenceMap: Record<string, ClientPresence> = {};
+      
+      for (const atendimento of atendimentos) {
+        // Get last client message to determine if recently active
+        const { data: lastClientMsg } = await supabase
+          .from('mensagens')
+          .select('created_at, remetente_tipo')
+          .eq('atendimento_id', atendimento.id)
+          .eq('remetente_tipo', 'cliente')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-    // Subscribe to presence updates for each atendimento
+        const isRecentlyActive = lastClientMsg && 
+          (new Date().getTime() - new Date(lastClientMsg.created_at).getTime()) < 2 * 60 * 1000; // 2 minutes
+
+        presenceMap[atendimento.id] = {
+          atendimentoId: atendimento.id,
+          isOnline: isRecentlyActive || false,
+          isTyping: false
+        };
+      }
+      
+      setClientPresence(presenceMap);
+    };
+
+    updatePresenceFromActivity();
+
+    // Subscribe to new messages to update presence
     const channels = atendimentos.map(atendimento => {
       const channel = supabase.channel(`client-presence:${atendimento.id}`);
       
@@ -52,7 +70,6 @@ export function useClientPresence({ atendimentos, enabled }: UseClientPresencePr
             }
           }));
           
-          // Auto-clear typing after 3 seconds
           if (payload.payload.isTyping) {
             setTimeout(() => {
               setClientPresence(prev => ({
@@ -63,6 +80,35 @@ export function useClientPresence({ atendimentos, enabled }: UseClientPresencePr
                 }
               }));
             }, 3000);
+          }
+        })
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens',
+          filter: `atendimento_id=eq.${atendimento.id}`
+        }, (payload: any) => {
+          if (payload.new.remetente_tipo === 'cliente') {
+            // Cliente enviou mensagem, está online
+            setClientPresence(prev => ({
+              ...prev,
+              [atendimento.id]: {
+                ...prev[atendimento.id],
+                isOnline: true,
+                isTyping: false
+              }
+            }));
+            
+            // Clear online status after 2 minutes
+            setTimeout(() => {
+              setClientPresence(prev => ({
+                ...prev,
+                [atendimento.id]: {
+                  ...prev[atendimento.id],
+                  isOnline: false
+                }
+              }));
+            }, 2 * 60 * 1000);
           }
         })
         .subscribe();
