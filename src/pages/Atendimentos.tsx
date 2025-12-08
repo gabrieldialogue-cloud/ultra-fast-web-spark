@@ -1903,11 +1903,11 @@ export default function Atendimentos() {
                                 </button>
                               )}
                             </div>
-                            <Tabs defaultValue="chat" className="w-full">
+                            <Tabs defaultValue="chat" className="w-full h-[calc(100vh-220px)] flex flex-col">
                               
-                              <TabsContent value="chat" className="mt-0 flex flex-col h-[calc(100vh-220px)]">
+                              <TabsContent value="chat" className="mt-0 flex-1 flex flex-col min-h-0">
                                 <div 
-                                  className="w-full bg-card/95 backdrop-blur-sm rounded-b-xl relative flex flex-col flex-1 min-h-0"
+                                  className="w-full bg-card/95 backdrop-blur-sm rounded-b-xl flex flex-col h-full"
                                   style={selectedAtendimentoIdVendedor ? {
                                     backgroundImage:
                                       "linear-gradient(to right, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
@@ -1917,8 +1917,8 @@ export default function Atendimentos() {
                                     backgroundSize: "18px 18px, 18px 18px, 100% 100%, 100% 100%",
                                   } : {}}
                                 >
-                                  {/* Área de mensagens */}
-                                  <div className="flex-1 min-h-0 overflow-hidden">
+                                  {/* Área de mensagens - flex-1 para ocupar espaço disponível */}
+                                  <div className="flex-1 overflow-hidden">
                                     <ScrollArea 
                                       className="h-full"
                                       ref={scrollRef}
@@ -2013,13 +2013,15 @@ export default function Atendimentos() {
                                     </ScrollArea>
                                   </div>
                                   
-                                  {/* Input Area - sempre no fundo */}
+                                  {/* Input Area - fixo no fundo */}
                                   {selectedAtendimentoIdVendedor && (
                                     isWindowClosed ? (
-                                      <WhatsAppWindowAlert 
-                                        lastClientMessageAt={lastClientMessageAt}
-                                        hoursSinceLast={hoursSinceLast}
-                                      />
+                                      <div className="shrink-0">
+                                        <WhatsAppWindowAlert 
+                                          lastClientMessageAt={lastClientMessageAt}
+                                          hoursSinceLast={hoursSinceLast}
+                                        />
+                                      </div>
                                     ) : (
                                       <div className="shrink-0 p-4 border-t border-border/20 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] bg-background/80 backdrop-blur-sm">
                                         {selectedFile && (
