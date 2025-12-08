@@ -807,12 +807,12 @@ export function EvolutionInstanceManager({ vendedores }: Props) {
 
                 <div className="space-y-2">
                   <Label htmlFor="associate-vendedor">Associar a Vendedor (opcional)</Label>
-                  <Select value={selectedVendedor} onValueChange={setSelectedVendedor}>
+                  <Select value={selectedVendedor || "none"} onValueChange={(v) => setSelectedVendedor(v === "none" ? "" : v)}>
                     <SelectTrigger id="associate-vendedor">
                       <SelectValue placeholder="Selecione um vendedor" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {vendedores.map((vend) => (
                         <SelectItem key={vend.id} value={vend.id}>
                           {vend.nome}
