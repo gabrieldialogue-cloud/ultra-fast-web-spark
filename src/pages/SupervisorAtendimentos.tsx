@@ -399,7 +399,7 @@ export default function SupervisorAtendimentos() {
             </CardContent>
           </Card>
         ) : (
-          <div className="flex gap-4 w-full" style={{ height: 'calc(100vh - 180px)' }}>
+          <div className="flex gap-4 w-full" style={{ height: 'calc(100vh - 80px)' }}>
             {/* Column 1: Marcas */}
             <Card style={getColumnStyle('marcas')} className="transition-all duration-500 ease-in-out h-full flex flex-col bg-gradient-to-br from-card via-card to-muted/30 border-2 border-border/50 shadow-xl hover:shadow-2xl hover:border-primary/30">
               {collapsedColumns.marcas ? (
@@ -445,7 +445,7 @@ export default function SupervisorAtendimentos() {
                         />
                       </div>
                     </div>
-                    <ScrollArea className="flex-1" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+                    <ScrollArea className="flex-1" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                       <div className="space-y-1 p-4 pt-2">
                         {marcasFiltradas.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-8">
@@ -553,7 +553,7 @@ export default function SupervisorAtendimentos() {
                             />
                           </div>
                         </div>
-                        <ScrollArea className="flex-1" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+                        <ScrollArea className="flex-1" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                           <div className="space-y-1 p-4 pt-2">
                             {vendedoresFiltradosPorBusca.length === 0 ? (
                               <p className="text-sm text-muted-foreground text-center py-8">
@@ -652,16 +652,16 @@ export default function SupervisorAtendimentos() {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                 </CardHeader>
-                <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+                <CardContent className="p-0 flex-1 flex flex-col min-h-0 overflow-hidden">
                   {!selectedVendedor ? (
-                    <div className="flex flex-col items-center justify-center h-[600px]">
+                    <div className="flex flex-col items-center justify-center flex-1">
                       <MessageSquare className="h-12 w-12 text-muted-foreground/40 mb-3" />
                       <p className="text-sm text-muted-foreground">
                         Selecione um vendedor
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0 h-full min-h-0">
+                    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-0 flex-1 min-h-0">
                       {/* Lista de Conversas */}
                       <div className="border-r bg-gradient-to-b from-muted/20 to-transparent h-full min-h-0 flex flex-col">
                         <div className="p-3 border-b bg-gradient-to-r from-primary/5 to-transparent shrink-0 space-y-2">
