@@ -667,7 +667,7 @@ export function AtendimentoChatModal({
                 hoursSinceLast={hoursSinceLast}
               />
             ) : (
-              <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-4 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0">
+              <div className="border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-4 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0 mt-auto">
                 <div className="flex gap-2 items-end bg-card/60 backdrop-blur-sm p-2 rounded-3xl shadow-lg border border-border/50">
                   <FileUpload 
                     onFileSelected={handleFileSelected}

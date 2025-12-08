@@ -2018,7 +2018,7 @@ export default function Atendimentos() {
                                          hoursSinceLast={hoursSinceLast}
                                        />
                                      ) : (
-                                       <div className="p-4 border-t border-border/20 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0">
+                                       <div className="p-4 border-t border-border/20 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)] shrink-0 mt-auto">
                                          {selectedFile && (
                                            <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-lg flex items-center justify-between">
                                              <div className="flex items-center gap-2 min-w-0">
