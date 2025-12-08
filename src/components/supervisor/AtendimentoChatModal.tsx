@@ -682,7 +682,7 @@ export function AtendimentoChatModal({
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Digite sua mensagem..."
-                    className="min-h-[28px] max-h-[50px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 py-0.5 text-sm leading-7"
+                    className="min-h-[32px] max-h-[50px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 py-1 text-sm flex items-center"
                     disabled={isSending}
                   />
                   <div className="flex gap-1.5 items-center relative">
