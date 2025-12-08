@@ -1905,9 +1905,9 @@ export default function Atendimentos() {
                             </div>
                             <Tabs defaultValue="chat" className="w-full">
                               
-                              <TabsContent value="chat" className="mt-0">
+                              <TabsContent value="chat" className="mt-0 flex flex-col h-[calc(100vh-220px)]">
                                 <div 
-                                  className="h-[calc(100vh-220px)] w-full bg-card/95 backdrop-blur-sm rounded-b-xl relative flex flex-col"
+                                  className="w-full bg-card/95 backdrop-blur-sm rounded-b-xl relative flex flex-col flex-1 min-h-0"
                                   style={selectedAtendimentoIdVendedor ? {
                                     backgroundImage:
                                       "linear-gradient(to right, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
@@ -1918,7 +1918,7 @@ export default function Atendimentos() {
                                   } : {}}
                                 >
                                   <ScrollArea 
-                                    className="flex-1 min-h-0 overflow-y-auto"
+                                    className="flex-1 min-h-0"
                                     ref={scrollRef}
                                   >
                                     <div className="w-full p-3">
