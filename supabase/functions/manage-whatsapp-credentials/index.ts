@@ -347,6 +347,78 @@ serve(async (req) => {
       
       console.log('Evolution API connected. Instances count:', instancesCount);
 
+      // Save credentials to database using service role
+      const { data: existingConfig } = await supabase
+        .from('evolution_config')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingConfig) {
+        await supabase
+          .from('evolution_config')
+          .update({
+            api_url: apiUrl,
+            api_key: apiKey,
+            is_connected: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingConfig.id);
+        console.log('Evolution config updated in database');
+      } else {
+        await supabase
+          .from('evolution_config')
+          .insert({
+            api_url: apiUrl,
+            api_key: apiKey,
+            is_connected: true,
+          });
+        console.log('Evolution config created in database');
+      }
+
+      // Configure webhooks for all instances automatically
+      const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-webhook?source=evolution`;
+      console.log('Auto-configuring webhooks with URL:', webhookUrl);
+      
+      for (const instance of instances) {
+        const instanceName = instance.name || instance.instanceName;
+        if (!instanceName) continue;
+        
+        try {
+          const webhookResponse = await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
+            method: 'POST',
+            headers: {
+              'apikey': apiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              webhook: {
+                url: webhookUrl,
+                webhook_by_events: false,
+                webhook_base64: true,
+                events: [
+                  'MESSAGES_UPSERT',
+                  'MESSAGES_UPDATE',
+                  'MESSAGES_DELETE',
+                  'SEND_MESSAGE',
+                  'CONNECTION_UPDATE',
+                  'QRCODE_UPDATED',
+                ],
+              },
+            }),
+          });
+          
+          if (webhookResponse.ok) {
+            console.log(`Webhook configured for instance: ${instanceName}`);
+          } else {
+            console.error(`Failed to configure webhook for ${instanceName}:`, await webhookResponse.text());
+          }
+        } catch (err) {
+          console.error(`Error configuring webhook for ${instanceName}:`, err);
+        }
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
