@@ -1827,6 +1827,17 @@ export default function Atendimentos() {
                                                {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                              </p>
                                              <div className="flex items-center gap-0.5 shrink-0">
+                                               {/* Indicador de janela 24h expirada */}
+                                               {lastMessages[atendimento.id]?.isWindowExpired && (
+                                                 <Badge 
+                                                   variant="outline" 
+                                                   className="text-[10px] gap-0.5 px-1 py-0 h-4 border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                                   title="Janela de 24h expirada"
+                                                 >
+                                                   <Clock className="h-2.5 w-2.5" />
+                                                   24h
+                                                 </Badge>
+                                               )}
                                                {getStatusBadge(atendimento.status)}
                                                {lastMessages[atendimento.id]?.attachmentCount > 0 && (
                                                  <Badge variant="outline" className="text-[10px] gap-0.5 px-0.5 py-0 h-4">

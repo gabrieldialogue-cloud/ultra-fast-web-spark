@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { differenceInHours } from 'date-fns';
 
 interface LastMessage {
   atendimentoId: string;
@@ -12,6 +13,8 @@ interface LastMessage {
   attachmentCount?: number;
   readAt?: string | null;
   deliveredAt?: string | null;
+  lastClientMessageAt?: string | null;
+  isWindowExpired?: boolean;
 }
 
 interface UseLastMessagesProps {
@@ -42,6 +45,25 @@ export function useLastMessages({ atendimentos, enabled }: UseLastMessagesProps)
 
       const lastMsg = lastMsgs?.[0];
       
+      // Get last client message to check 24h window
+      const { data: lastClientMsgs } = await supabase
+        .from('mensagens')
+        .select('created_at')
+        .eq('atendimento_id', atendimento.id)
+        .eq('remetente_tipo', 'cliente')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      const lastClientMsg = lastClientMsgs?.[0];
+      const lastClientMessageAt = lastClientMsg?.created_at || null;
+      
+      // Check if 24h window is expired
+      let isWindowExpired = true;
+      if (lastClientMessageAt) {
+        const hoursSince = differenceInHours(new Date(), new Date(lastClientMessageAt));
+        isWindowExpired = hoursSince >= 24;
+      }
+      
       // Get attachment count
       const { count: attachmentCount } = await supabase
         .from('mensagens')
@@ -60,7 +82,9 @@ export function useLastMessages({ atendimentos, enabled }: UseLastMessagesProps)
           remetenteTipo: lastMsg.remetente_tipo,
           attachmentCount: attachmentCount || 0,
           readAt: lastMsg.read_at,
-          deliveredAt: lastMsg.delivered_at
+          deliveredAt: lastMsg.delivered_at,
+          lastClientMessageAt,
+          isWindowExpired
         };
       }
     }

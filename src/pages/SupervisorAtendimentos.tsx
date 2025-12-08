@@ -1,7 +1,7 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Users, Loader2, ChevronLeft, ChevronRight, User, Phone, Search, Tag } from "lucide-react";
+import { MessageSquare, Users, Loader2, ChevronLeft, ChevronRight, User, Phone, Search, Tag, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AtendimentoChatModal } from "@/components/supervisor/AtendimentoChatModal";
@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { differenceInHours } from "date-fns";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -298,6 +299,25 @@ export default function SupervisorAtendimentos() {
     return atendimento.mensagens.filter(
       msg => msg.remetente_tipo === 'cliente' && !msg.read_at
     ).length;
+  };
+
+  // Verificar se a janela de 24h expirou para um atendimento
+  const isWindowExpiredForAtendimento = (atendimento: Atendimento) => {
+    const clientMessages = atendimento.mensagens.filter(
+      msg => msg.remetente_tipo === 'cliente'
+    );
+    
+    if (clientMessages.length === 0) return true;
+    
+    // Pegar a última mensagem do cliente
+    const sortedMessages = [...clientMessages].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    const lastClientMessage = sortedMessages[0];
+    const hoursSince = differenceInHours(new Date(), new Date(lastClientMessage.created_at));
+    
+    return hoursSince >= 24;
   };
 
   // Filtrar marcas com busca
@@ -738,9 +758,22 @@ export default function SupervisorAtendimentos() {
                                     <p className="text-xs text-muted-foreground truncate flex-1 font-medium">
                                       {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
                                     </p>
-                                    <Badge variant="outline" className="text-[10px] py-0.5 px-2 bg-primary/5 border-primary/30">
-                                      {atendimento.status.replace(/_/g, ' ')}
-                                    </Badge>
+                                    <div className="flex items-center gap-1">
+                                      {/* Indicador de janela 24h expirada */}
+                                      {isWindowExpiredForAtendimento(atendimento) && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-[10px] gap-0.5 px-1 py-0 h-4 border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                          title="Janela de 24h expirada"
+                                        >
+                                          <Clock className="h-2.5 w-2.5" />
+                                          24h
+                                        </Badge>
+                                      )}
+                                      <Badge variant="outline" className="text-[10px] py-0.5 px-2 bg-primary/5 border-primary/30">
+                                        {atendimento.status.replace(/_/g, ' ')}
+                                      </Badge>
+                                    </div>
                                   </div>
                                 </button>
                                 );

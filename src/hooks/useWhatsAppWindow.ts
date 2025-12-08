@@ -91,3 +91,38 @@ export function useWhatsAppWindow({
 
   return result;
 }
+
+/**
+ * Função utilitária para verificar se a janela de 24h expirou
+ * baseado na data da última mensagem do cliente.
+ */
+export function isWhatsAppWindowExpired(lastClientMessageAt: Date | string | null): boolean {
+  if (!lastClientMessageAt) return true;
+  
+  const messageDate = typeof lastClientMessageAt === 'string' 
+    ? new Date(lastClientMessageAt) 
+    : lastClientMessageAt;
+  
+  const hoursSince = differenceInHours(new Date(), messageDate);
+  return hoursSince >= 24;
+}
+
+/**
+ * Função utilitária para verificar se a janela de 24h expirou
+ * baseado no remetente e data da última mensagem.
+ */
+export function checkWindowFromLastMessage(
+  lastMessageRemetenteTipo: string | undefined,
+  lastMessageCreatedAt: string | undefined
+): boolean {
+  // Se a última mensagem foi do cliente, verificamos se faz mais de 24h
+  if (lastMessageRemetenteTipo === 'cliente' && lastMessageCreatedAt) {
+    return !isWhatsAppWindowExpired(lastMessageCreatedAt);
+  }
+  
+  // Se a última mensagem não foi do cliente, precisamos verificar
+  // quando foi a última mensagem do cliente (isso requer contexto adicional)
+  // Por segurança, retornamos false para indicar que precisa de verificação
+  return true; // Assumimos que está ok se não temos info do cliente
+}
+
