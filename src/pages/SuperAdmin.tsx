@@ -1081,19 +1081,38 @@ export default function SuperAdmin() {
                       <div
                         key={number.id}
                         className={`flex items-center justify-between p-4 rounded-lg border ${
-                          number.is_active 
-                            ? 'border-success/30 bg-success/5' 
-                            : 'border-muted bg-muted/30'
+                          number.is_main 
+                            ? 'border-blue-500/50 bg-blue-500/10'
+                            : number.is_active 
+                              ? 'border-success/30 bg-success/5' 
+                              : 'border-muted bg-muted/30'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                            number.is_active ? 'bg-success/20' : 'bg-muted'
+                            number.is_main
+                              ? 'bg-blue-500/20'
+                              : number.is_active 
+                                ? 'bg-success/20' 
+                                : 'bg-muted'
                           }`}>
-                            <Phone className={`h-5 w-5 ${number.is_active ? 'text-success' : 'text-muted-foreground'}`} />
+                            <Phone className={`h-5 w-5 ${
+                              number.is_main
+                                ? 'text-blue-500'
+                                : number.is_active 
+                                  ? 'text-success' 
+                                  : 'text-muted-foreground'
+                            }`} />
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{number.name}</p>
+                            <p className="font-medium text-foreground flex items-center gap-2">
+                              {number.name}
+                              {number.is_main && (
+                                <Badge variant="outline" className="text-xs border-blue-500 text-blue-500">
+                                  Principal
+                                </Badge>
+                              )}
+                            </p>
                             <p className="text-sm text-muted-foreground">
                               {number.verified_name || number.phone_display}
                             </p>
@@ -1106,26 +1125,30 @@ export default function SuperAdmin() {
                           <Badge variant={number.is_active ? "default" : "secondary"} className={number.is_active ? "bg-success" : ""}>
                             {number.is_active ? 'Ativo' : 'Inativo'}
                           </Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleMetaNumberStatus(number.id)}
-                            title={number.is_active ? "Desativar" : "Ativar"}
-                          >
-                            {number.is_active ? (
-                              <ToggleRight className="h-4 w-4 text-success" />
-                            ) : (
-                              <ToggleLeft className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteMetaNumber(number.id)}
-                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!number.is_main && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleMetaNumberStatus(number.id)}
+                                title={number.is_active ? "Desativar" : "Ativar"}
+                              >
+                                {number.is_active ? (
+                                  <ToggleRight className="h-4 w-4 text-success" />
+                                ) : (
+                                  <ToggleLeft className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => deleteMetaNumber(number.id)}
+                                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}

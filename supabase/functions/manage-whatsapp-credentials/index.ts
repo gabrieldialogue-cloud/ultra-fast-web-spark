@@ -22,6 +22,46 @@ serve(async (req) => {
     console.log(`Processing action: ${action}`);
 
     if (action === 'list_meta_numbers') {
+      // First, check if there's a main number configured via environment secrets
+      const mainAccessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
+      const mainPhoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+      
+      let mainNumber = null;
+      
+      if (mainAccessToken && mainPhoneNumberId) {
+        console.log('Found main number configured via secrets, validating...');
+        try {
+          const phoneInfoResponse = await fetch(
+            `https://graph.facebook.com/v18.0/${mainPhoneNumberId}?fields=display_phone_number,verified_name`,
+            {
+              headers: {
+                'Authorization': `Bearer ${mainAccessToken}`,
+              },
+            }
+          );
+
+          if (phoneInfoResponse.ok) {
+            const phoneInfo = await phoneInfoResponse.json();
+            mainNumber = {
+              id: 'main-env-number',
+              name: 'Número Principal (Secrets)',
+              phone_number_id: mainPhoneNumberId,
+              phone_display: phoneInfo.display_phone_number,
+              verified_name: phoneInfo.verified_name,
+              is_active: true,
+              is_main: true, // Flag to identify main number
+              created_at: null,
+              updated_at: null,
+            };
+            console.log('Main number validated:', phoneInfo.display_phone_number);
+          } else {
+            console.log('Main number validation failed, secrets may be invalid');
+          }
+        } catch (err) {
+          console.error('Error validating main number:', err);
+        }
+      }
+
       // List all Meta WhatsApp numbers from the database
       const { data, error } = await supabase
         .from('meta_whatsapp_numbers')
@@ -33,10 +73,13 @@ serve(async (req) => {
         throw error;
       }
 
-      console.log(`Found ${data?.length || 0} Meta numbers`);
+      // Combine main number with database numbers
+      const allNumbers = mainNumber ? [mainNumber, ...(data || [])] : (data || []);
+      
+      console.log(`Found ${allNumbers.length} Meta numbers (including main: ${mainNumber ? 'yes' : 'no'})`);
 
       return new Response(
-        JSON.stringify({ success: true, data }),
+        JSON.stringify({ success: true, data: allNumbers }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
