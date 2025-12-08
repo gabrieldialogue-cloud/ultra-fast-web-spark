@@ -7,6 +7,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -89,32 +90,34 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-2 border-sidebar-border bg-gradient-to-b from-sidebar-background to-sidebar-background/95">
       <SidebarContent className="flex flex-col">
         {/* Logo e botão de toggle */}
-        <div className="border-b border-sidebar-border/50 p-3">
-          <div className="flex flex-col items-center gap-2">
-            <AlteseLogoIcon className={`drop-shadow-md transition-all duration-200 ${open ? 'h-10 w-10' : 'h-8 w-8'}`} />
-            {open && <AlteseLogoText className="text-sidebar-foreground" />}
-            <SidebarTrigger className="text-sidebar-foreground hover:bg-sidebar-accent p-1.5 rounded-lg transition-colors" />
+        <div className={`border-b border-sidebar-border/50 ${open ? 'px-4 py-4' : 'p-3'}`}>
+          <div className={`flex ${open ? 'items-center justify-between' : 'flex-col items-center gap-2'}`}>
+            <div className={`flex items-center ${open ? 'gap-2' : ''}`}>
+              <AlteseLogoIcon className={`drop-shadow-md transition-all duration-200 ${open ? 'h-10 w-10' : 'h-8 w-8'}`} />
+              {open && <AlteseLogoText className="text-sidebar-foreground" />}
+            </div>
+            <SidebarTrigger className={`text-sidebar-foreground hover:bg-sidebar-accent rounded-lg transition-colors ${open ? 'p-2' : 'p-1.5'}`} />
           </div>
         </div>
 
         {/* Status Online - apenas para vendedores */}
         {!isSuperAdmin && !isSupervisor && (
-          <div className="p-2">
-            <div className="flex items-center justify-center rounded-lg bg-sidebar-accent/50 p-2">
-              <div className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-success' : 'bg-muted-foreground'}`} />
+          <div className={`space-y-2 ${open ? 'px-4 py-3' : 'p-2'}`}>
+            <div className={`flex items-center rounded-lg bg-sidebar-accent/50 p-2 ${open ? 'gap-2' : 'justify-center'}`}>
+              <div className={`rounded-full shrink-0 ${isOnline ? 'bg-success' : 'bg-muted-foreground'} ${open ? 'h-3 w-3' : 'h-2.5 w-2.5'}`} />
               {open && (
-                <span className="ml-2 text-xs text-sidebar-foreground">
+                <span className="text-xs text-sidebar-foreground">
                   {isOnline ? "Online" : "Offline"}
                 </span>
               )}
             </div>
             
             {hasPriority && (
-              <div className="mt-2 flex items-center justify-center rounded-lg bg-accent/20 border border-accent/30 p-2">
-                <AlertCircle className="h-4 w-4 text-accent" />
+              <div className={`flex items-center rounded-lg bg-accent/20 border border-accent/30 p-2 ${open ? 'gap-2' : 'justify-center'}`}>
+                <AlertCircle className={`text-accent shrink-0 ${open ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
                 {open && (
-                  <span className="ml-2 text-xs text-accent font-medium">
-                    Prioridade
+                  <span className="text-xs text-accent font-medium">
+                    Prioridade na Fila
                   </span>
                 )}
               </div>
@@ -124,6 +127,11 @@ export function AppSidebar() {
 
         {/* Menu Principal */}
         <SidebarGroup className="flex-1">
+          {open && (
+            <SidebarGroupLabel className="text-sidebar-foreground/70 px-4 py-4 text-xs font-semibold uppercase tracking-wider">
+              Menu Principal
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               {(isSupervisor ? supervisorItems : menuItems).map((item) => (
@@ -132,11 +140,13 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end
-                      className="flex items-center justify-center text-sidebar-foreground transition-all hover:bg-sidebar-accent rounded-lg p-2.5"
+                      className={`flex items-center text-sidebar-foreground transition-all hover:bg-sidebar-accent rounded-lg ${
+                        open ? 'gap-3 px-4 py-3 mx-2' : 'justify-center p-2.5 mx-auto'
+                      }`}
                       activeClassName="bg-gradient-to-r from-accent to-secondary text-white font-medium shadow-md"
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
-                      {open && <span className="ml-3">{item.title}</span>}
+                      {open && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -146,7 +156,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Menu Inferior */}
-        <div className="border-t border-sidebar-border/50 pt-2">
+        <div className={`border-t border-sidebar-border/50 ${open ? 'pt-4' : 'pt-2'}`}>
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -155,11 +165,13 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
                         to={item.url}
-                        className="flex items-center justify-center text-sidebar-foreground transition-all hover:bg-sidebar-accent rounded-lg p-2.5"
+                        className={`flex items-center text-sidebar-foreground transition-all hover:bg-sidebar-accent rounded-lg ${
+                          open ? 'gap-3 px-4 py-3 mx-2' : 'justify-center p-2.5 mx-auto'
+                        }`}
                         activeClassName="bg-gradient-to-r from-primary to-secondary text-white font-medium shadow-md"
                       >
                         <item.icon className="h-5 w-5 shrink-0" />
-                        {open && <span className="ml-3">{item.title}</span>}
+                        {open && <span>{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -169,11 +181,13 @@ export function AppSidebar() {
                     <SidebarMenuButton asChild tooltip="Super Admin">
                       <NavLink
                         to="/super-admin"
-                        className="flex items-center justify-center text-sidebar-foreground transition-all hover:bg-destructive/20 hover:text-destructive rounded-lg p-2.5"
+                        className={`flex items-center text-sidebar-foreground transition-all hover:bg-destructive/20 hover:text-destructive rounded-lg ${
+                          open ? 'gap-3 px-4 py-3 mx-2' : 'justify-center p-2.5 mx-auto'
+                        }`}
                         activeClassName="bg-gradient-to-r from-destructive to-accent text-white font-medium shadow-md"
                       >
                         <Shield className="h-5 w-5 shrink-0" />
-                        {open && <span className="ml-3">Super Admin</span>}
+                        {open && <span>Super Admin</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -182,10 +196,12 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild tooltip="Sair">
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center justify-center text-sidebar-foreground transition-all hover:bg-destructive/20 hover:text-destructive rounded-lg p-2.5"
+                      className={`flex w-full items-center text-sidebar-foreground transition-all hover:bg-destructive/20 hover:text-destructive rounded-lg ${
+                        open ? 'gap-3 px-4 py-3 mx-2' : 'justify-center p-2.5 mx-auto'
+                      }`}
                     >
                       <LogOut className="h-5 w-5 shrink-0" />
-                      {open && <span className="ml-3">Sair</span>}
+                      {open && <span>Sair</span>}
                     </button>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

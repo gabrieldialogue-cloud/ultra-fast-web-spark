@@ -1872,18 +1872,16 @@ export default function Atendimentos() {
 
                         {/* Chat Area */}
                         <Card className="lg:col-span-1 flex flex-col h-[calc(100vh-180px)]">
-                          <div className="flex items-center justify-between border-b px-4 shrink-0">
-                            <Tabs defaultValue="chat" className="flex-1">
-                              <TabsList className="w-auto justify-start rounded-none border-0 bg-transparent p-0">
-                                <TabsTrigger value="chat" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                                  Chat
-                                </TabsTrigger>
-                                <TabsTrigger value="media" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                                  <Images className="h-4 w-4 mr-2" />
-                                  Mídias
-                                </TabsTrigger>
-                              </TabsList>
-                            </Tabs>
+                          {/* Header do Chat */}
+                          <div className="flex items-center justify-between border-b px-4 py-2 shrink-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">Chat</span>
+                              <span className="text-muted-foreground text-xs">|</span>
+                              <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                                <Images className="h-3.5 w-3.5" />
+                                Mídias
+                              </button>
+                            </div>
                             {selectedAtendimentoIdVendedor && (
                               <button
                                 onClick={() => {
@@ -1903,219 +1901,206 @@ export default function Atendimentos() {
                             )}
                           </div>
                           
-                          {/* Chat Content - flex container */}
-                          <div className="flex-1 flex flex-col min-h-0">
-                            {/* Messages Area */}
-                            <div 
-                              className="flex-1 overflow-hidden"
-                              style={selectedAtendimentoIdVendedor ? {
-                                backgroundImage:
-                                  "linear-gradient(to right, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
-                                  "linear-gradient(to bottom, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
-                                  "radial-gradient(circle at 20% 20%, hsl(var(--primary)/0.20) 0, transparent 55%)," +
-                                  "radial-gradient(circle at 80% 80%, hsl(var(--accent)/0.20) 0, transparent 55%)",
-                                backgroundSize: "18px 18px, 18px 18px, 100% 100%, 100% 100%",
-                              } : {}}
-                            >
-                              <ScrollArea className="h-full" ref={scrollRef}>
-                                <div className="p-3">
-                                  {!selectedAtendimentoIdVendedor ? (
-                                    <div className="flex flex-col items-center justify-center text-muted-foreground bg-card p-6 min-h-[300px]">
-                                      <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-                                      <p>Selecione um atendimento para ver as mensagens</p>
-                                    </div>
-                                  ) : mensagensVendedor.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
-                                      <Bot className="h-12 w-12 mb-4 opacity-50" />
-                                      <p>Nenhuma mensagem ainda</p>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-4">
-                                                {/* Botão para carregar mensagens antigas */}
-                                                {hasMoreMessages && (
-                                                  <div className="flex justify-center pb-2">
-                                                    <Button
-                                                      variant="outline"
-                                                      size="sm"
-                                                      onClick={handleLoadOlderMessages}
-                                                      disabled={loadingMessages}
-                                                      className="text-xs"
-                                                    >
-                                                      {loadingMessages ? (
-                                                        <>
-                                                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                                                          Carregando...
-                                                        </>
-                                                      ) : (
-                                                        'Carregar mensagens antigas'
-                                                      )}
-                                                    </Button>
-                                                  </div>
-                                                )}
-                                                
-                                                {searchMessages && filteredMensagensVendedor.length === 0 ? (
-                                                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-12">
-                                                    <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-                                                    <p>Nenhuma mensagem encontrada</p>
-                                                    <p className="text-xs mt-1">Tente buscar com outros termos</p>
-                                                  </div>
-                                                ) : (
-                                                  <>
-                                                    {filteredMensagensVendedor.map((mensagem, index) => {
-                                                      const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
-                                                      const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
-                                                      const currentAtendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
-                                                      
-                                                      return (
-                                                        <ChatMessage
-                                                          key={mensagem.id}
-                                                          messageId={mensagem.id}
-                                                          remetenteTipo={mensagem.remetente_tipo as "cliente" | "ia" | "supervisor" | "vendedor"}
-                                                          conteudo={mensagem.conteudo}
-                                                          createdAt={mensagem.created_at}
-                                                          attachmentUrl={mensagem.attachment_url}
-                                                          attachmentType={mensagem.attachment_type}
-                                                          attachmentFilename={mensagem.attachment_filename}
-                                                          searchTerm={searchMessages}
-                                                          isHighlighted={highlightedMessageId === mensagem.id}
-                                                          readAt={mensagem.read_at}
-                                                          showSenderName={showSenderName}
-                                                          clientePushName={currentAtendimento?.clientes?.push_name}
-                                                          clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
-                                                          status={mensagem.status}
-                                                          deliveredAt={mensagem.delivered_at}
-                                                          transcription={mensagem.attachment_type === 'audio' && mensagem.conteudo !== '[Áudio]' && mensagem.conteudo !== '[Audio]' ? mensagem.conteudo : null}
-                                                        />
-                                      );
-                                    })}
-                                  </>
-                                )}
-                                {isClientTyping && (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Cliente está digitando...</span>
+                          {/* Messages Area - ocupa todo o espaço restante exceto o input */}
+                          <div 
+                            className="flex-1 overflow-hidden"
+                            style={selectedAtendimentoIdVendedor ? {
+                              backgroundImage:
+                                "linear-gradient(to right, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
+                                "linear-gradient(to bottom, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
+                                "radial-gradient(circle at 20% 20%, hsl(var(--primary)/0.20) 0, transparent 55%)," +
+                                "radial-gradient(circle at 80% 80%, hsl(var(--accent)/0.20) 0, transparent 55%)",
+                              backgroundSize: "18px 18px, 18px 18px, 100% 100%, 100% 100%",
+                            } : {}}
+                          >
+                            <ScrollArea className="h-full" ref={scrollRef}>
+                              <div className="p-3">
+                                {!selectedAtendimentoIdVendedor ? (
+                                  <div className="flex flex-col items-center justify-center text-muted-foreground p-6 min-h-[300px]">
+                                    <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                                    <p>Selecione um atendimento para ver as mensagens</p>
                                   </div>
-                                )}
-                                <div ref={messagesEndRef} />
-                              </div>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                      
-                      {/* Input Area - sempre no fundo */}
-                      {selectedAtendimentoIdVendedor && (
-                        <div className="shrink-0 border-t border-border/20 bg-background/95 backdrop-blur-sm">
-                          {isWindowClosed ? (
-                            <WhatsAppWindowAlert 
-                              lastClientMessageAt={lastClientMessageAt}
-                              hoursSinceLast={hoursSinceLast}
-                            />
-                          ) : (
-                            <div className="p-4">
-                              {selectedFile && (
-                                <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-lg flex items-center justify-between">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    {selectedFile.type.startsWith('image/') ? (
-                                      <ImageIcon className="h-5 w-5 text-accent shrink-0" />
-                                    ) : (
-                                      <File className="h-5 w-5 text-accent shrink-0" />
+                                ) : mensagensVendedor.length === 0 ? (
+                                  <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
+                                    <Bot className="h-12 w-12 mb-4 opacity-50" />
+                                    <p>Nenhuma mensagem ainda</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-4">
+                                    {hasMoreMessages && (
+                                      <div className="flex justify-center pb-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={handleLoadOlderMessages}
+                                          disabled={loadingMessages}
+                                          className="text-xs"
+                                        >
+                                          {loadingMessages ? (
+                                            <>
+                                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                              Carregando...
+                                            </>
+                                          ) : (
+                                            'Carregar mensagens antigas'
+                                          )}
+                                        </Button>
+                                      </div>
                                     )}
-                                    <span className="text-sm font-medium truncate max-w-[200px]">
-                                      {selectedFile.name}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground shrink-0">
-                                      ({(selectedFile.size / 1024).toFixed(1)} KB)
-                                    </span>
+                                    
+                                    {searchMessages && filteredMensagensVendedor.length === 0 ? (
+                                      <div className="flex flex-col items-center justify-center text-muted-foreground py-12">
+                                        <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                                        <p>Nenhuma mensagem encontrada</p>
+                                        <p className="text-xs mt-1">Tente buscar com outros termos</p>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {filteredMensagensVendedor.map((mensagem, index) => {
+                                          const previousMessage = index > 0 ? filteredMensagensVendedor[index - 1] : null;
+                                          const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
+                                          const currentAtendimento = atendimentosVendedor.find(a => a.id === selectedAtendimentoIdVendedor);
+                                          
+                                          return (
+                                            <ChatMessage
+                                              key={mensagem.id}
+                                              messageId={mensagem.id}
+                                              remetenteTipo={mensagem.remetente_tipo as "cliente" | "ia" | "supervisor" | "vendedor"}
+                                              conteudo={mensagem.conteudo}
+                                              createdAt={mensagem.created_at}
+                                              attachmentUrl={mensagem.attachment_url}
+                                              attachmentType={mensagem.attachment_type}
+                                              attachmentFilename={mensagem.attachment_filename}
+                                              searchTerm={searchMessages}
+                                              isHighlighted={highlightedMessageId === mensagem.id}
+                                              readAt={mensagem.read_at}
+                                              showSenderName={showSenderName}
+                                              clientePushName={currentAtendimento?.clientes?.push_name}
+                                              clienteProfilePicture={currentAtendimento?.clientes?.profile_picture_url}
+                                              status={mensagem.status}
+                                              deliveredAt={mensagem.delivered_at}
+                                              transcription={mensagem.attachment_type === 'audio' && mensagem.conteudo !== '[Áudio]' && mensagem.conteudo !== '[Audio]' ? mensagem.conteudo : null}
+                                            />
+                                          );
+                                        })}
+                                      </>
+                                    )}
+                                    {isClientTyping && (
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground ml-11">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Cliente está digitando...</span>
+                                      </div>
+                                    )}
+                                    <div ref={messagesEndRef} />
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 shrink-0"
-                                    onClick={() => {
-                                      setSelectedFile(null);
-                                      if (fileInputRef.current) {
-                                        fileInputRef.current.value = "";
-                                      }
-                                    }}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
+                                )}
+                              </div>
+                            </ScrollArea>
+                          </div>
+                          
+                          {/* Input Area - fixo no fundo do card */}
+                          {selectedAtendimentoIdVendedor && (
+                            <div className="shrink-0 border-t border-border/20 bg-background/95 backdrop-blur-sm">
+                              {isWindowClosed ? (
+                                <WhatsAppWindowAlert 
+                                  lastClientMessageAt={lastClientMessageAt}
+                                  hoursSinceLast={hoursSinceLast}
+                                />
+                              ) : (
+                                <div className="p-4">
+                                  {selectedFile && (
+                                    <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-lg flex items-center justify-between">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        {selectedFile.type.startsWith('image/') ? (
+                                          <ImageIcon className="h-5 w-5 text-accent shrink-0" />
+                                        ) : (
+                                          <File className="h-5 w-5 text-accent shrink-0" />
+                                        )}
+                                        <span className="text-sm font-medium truncate max-w-[200px]">
+                                          {selectedFile.name}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground shrink-0">
+                                          ({(selectedFile.size / 1024).toFixed(1)} KB)
+                                        </span>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 shrink-0"
+                                        onClick={() => {
+                                          setSelectedFile(null);
+                                          if (fileInputRef.current) {
+                                            fileInputRef.current.value = "";
+                                          }
+                                        }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
+                                    <Input
+                                      ref={fileInputRef}
+                                      type="file"
+                                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+                                      onChange={handleFileSelect}
+                                      className="hidden"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-14 w-14 rounded-2xl hover:bg-primary/10 transition-all duration-300 hover:scale-105 shrink-0"
+                                      onClick={() => fileInputRef.current?.click()}
+                                      disabled={isUploading || isSending}
+                                    >
+                                      <Paperclip className="h-5 w-5 text-muted-foreground" />
+                                    </Button>
+                                    <Textarea
+                                      ref={messageInputRef}
+                                      value={messageInput}
+                                      onChange={handleInputChange}
+                                      onKeyPress={handleKeyPress}
+                                      placeholder="Digite sua mensagem..."
+                                      className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                                      disabled={isSending || isUploading}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={handleGenerateSuggestion}
+                                      disabled={isGeneratingSuggestion || isSending || isUploading || mensagensVendedor.length === 0}
+                                      className="h-14 w-14 rounded-2xl hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 shrink-0 group"
+                                      title="Gerar sugestão de resposta com IA"
+                                    >
+                                      {isGeneratingSuggestion ? (
+                                        <Loader2 className="h-5 w-5 text-purple-500 animate-spin" />
+                                      ) : (
+                                        <Sparkles className="h-5 w-5 text-purple-500 group-hover:text-purple-600 transition-colors" />
+                                      )}
+                                    </Button>
+                                    <Button
+                                      onClick={selectedFile ? handleSendWithFile : handleSendMessage}
+                                      disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
+                                      size="icon"
+                                      className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
+                                    >
+                                      {(isSending || isUploading) ? (
+                                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                      ) : (
+                                        <Send className="h-5 w-5 text-white" />
+                                      )}
+                                    </Button>
+                                    <AudioRecorder 
+                                      onAudioRecorded={handleAudioRecorded}
+                                      disabled={isSending || isUploading}
+                                    />
+                                  </div>
                                 </div>
                               )}
-                              
-                              <div className="flex gap-3 items-end bg-card/60 backdrop-blur-sm p-3 rounded-3xl shadow-lg border border-border/50">
-                                <Input
-                                  ref={fileInputRef}
-                                  type="file"
-                                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
-                                  onChange={handleFileSelect}
-                                  className="hidden"
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-14 w-14 rounded-2xl hover:bg-primary/10 transition-all duration-300 hover:scale-105 shrink-0"
-                                  onClick={() => fileInputRef.current?.click()}
-                                  disabled={isUploading || isSending}
-                                >
-                                  <Paperclip className="h-5 w-5 text-muted-foreground" />
-                                </Button>
-                                <Textarea
-                                  ref={messageInputRef}
-                                  value={messageInput}
-                                  onChange={handleInputChange}
-                                  onKeyPress={handleKeyPress}
-                                  placeholder="Digite sua mensagem..."
-                                  className="min-h-[60px] max-h-[120px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
-                                  disabled={isSending || isUploading}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={handleGenerateSuggestion}
-                                  disabled={isGeneratingSuggestion || isSending || isUploading || mensagensVendedor.length === 0}
-                                  className="h-14 w-14 rounded-2xl hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 shrink-0 group"
-                                  title="Gerar sugestão de resposta com IA"
-                                >
-                                  {isGeneratingSuggestion ? (
-                                    <Loader2 className="h-5 w-5 text-purple-500 animate-spin" />
-                                  ) : (
-                                    <Sparkles className="h-5 w-5 text-purple-500 group-hover:text-purple-600 transition-colors" />
-                                  )}
-                                </Button>
-                                <Button
-                                  onClick={selectedFile ? handleSendWithFile : handleSendMessage}
-                                  disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
-                                  size="icon"
-                                  className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
-                                >
-                                  {(isSending || isUploading) ? (
-                                    <Loader2 className="h-5 w-5 animate-spin text-white" />
-                                  ) : (
-                                    <Send className="h-5 w-5 text-white" />
-                                  )}
-                                </Button>
-                                <AudioRecorder 
-                                  onAudioRecorded={handleAudioRecorded}
-                                  disabled={isSending || isUploading}
-                                />
-                              </div>
                             </div>
                           )}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Media Tab */}
-                    {selectedAtendimentoIdVendedor && (
-                      <MediaGallery 
-                        mensagens={mensagensVendedor}
-                        onLoadMore={loadMoreMessages}
-                        hasMoreMedia={hasMoreMessages}
-                      />
-                    )}
-                  </Card>
+                        </Card>
                 </div>
               )}
             </CardContent>
