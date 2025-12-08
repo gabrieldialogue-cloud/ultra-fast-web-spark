@@ -65,6 +65,8 @@ export default function SuperAdmin() {
   const [selectedVendedorForWhatsApp, setSelectedVendedorForWhatsApp] = useState("");
   const [vendedorInstanceName, setVendedorInstanceName] = useState("");
   const [vendedorWhatsAppNumber, setVendedorWhatsAppNumber] = useState("");
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [evolutionInstancesCount, setEvolutionInstancesCount] = useState<number | null>(null);
   const [creatingInstance, setCreatingInstance] = useState(false);
 
   const checkWhatsAppStatus = async () => {
@@ -88,6 +90,171 @@ export default function SuperAdmin() {
       setMetaApiStatus('unknown');
     } finally {
       setCheckingMetaStatus(false);
+    }
+  };
+
+  const saveMetaCredentials = async () => {
+    if (!metaAccessToken || !metaPhoneNumberId) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Access Token e Phone Number ID são obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setMetaApiSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-whatsapp-credentials', {
+        body: {
+          action: 'save_meta_credentials',
+          credentials: {
+            accessToken: metaAccessToken,
+            phoneNumberId: metaPhoneNumberId,
+            businessAccountId: metaBusinessAccountId,
+            webhookToken: metaWebhookToken,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setMetaApiStatus('connected');
+        setMetaPhoneDisplay(data.phoneNumber);
+        setMetaVerifiedName(data.verifiedName);
+        toast({
+          title: "Credenciais validadas",
+          description: data.message,
+        });
+        // Clear form after success
+        setMetaAccessToken("");
+        setMetaPhoneNumberId("");
+        setMetaBusinessAccountId("");
+        setMetaWebhookToken("");
+      } else {
+        toast({
+          title: "Erro na validação",
+          description: data?.message || "Erro ao validar credenciais",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving Meta credentials:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setMetaApiSaving(false);
+    }
+  };
+
+  const saveEvolutionCredentials = async () => {
+    if (!evolutionApiUrl || !evolutionApiKey) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "URL e API Key são obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEvolutionSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-whatsapp-credentials', {
+        body: {
+          action: 'save_evolution_credentials',
+          credentials: {
+            apiUrl: evolutionApiUrl,
+            apiKey: evolutionApiKey,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setEvolutionStatus('connected');
+        setEvolutionInstancesCount(data.instancesCount || 0);
+        toast({
+          title: "Conexão validada",
+          description: data.message,
+        });
+      } else {
+        setEvolutionStatus('disconnected');
+        toast({
+          title: "Erro na conexão",
+          description: data?.message || "Erro ao conectar com Evolution API",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving Evolution credentials:', error);
+      setEvolutionStatus('disconnected');
+      toast({
+        title: "Erro ao conectar",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setEvolutionSaving(false);
+    }
+  };
+
+  const createEvolutionInstance = async () => {
+    if (!selectedVendedorForWhatsApp || !vendedorInstanceName) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Selecione um vendedor e defina o nome da instância",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingInstance(true);
+    setQrCodeData(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-evolution-instance', {
+        body: {
+          action: 'create_instance',
+          evolutionApiUrl: evolutionApiUrl,
+          evolutionApiKey: evolutionApiKey,
+          instanceData: {
+            vendedorId: selectedVendedorForWhatsApp,
+            instanceName: vendedorInstanceName,
+            phoneNumber: vendedorWhatsAppNumber,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Instância criada",
+          description: "Escaneie o QR Code para conectar o WhatsApp",
+        });
+        if (data.qrCode) {
+          setQrCodeData(data.qrCode);
+        }
+      } else {
+        toast({
+          title: "Erro ao criar instância",
+          description: data?.message || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating instance:', error);
+      toast({
+        title: "Erro ao criar instância",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingInstance(false);
     }
   };
 
@@ -797,29 +964,19 @@ export default function SuperAdmin() {
 
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => {
-                        setMetaApiSaving(true);
-                        // Simular salvamento - na prática, você usará a tool de secrets
-                        setTimeout(() => {
-                          toast({
-                            title: "Configuração salva",
-                            description: "As credenciais da Meta Cloud API foram atualizadas. Configure os secrets no Supabase.",
-                          });
-                          setMetaApiSaving(false);
-                        }, 1000);
-                      }}
+                      onClick={saveMetaCredentials}
                       className="flex-1 bg-blue-500 hover:bg-blue-600"
                       disabled={metaApiSaving || !metaAccessToken || !metaPhoneNumberId}
                     >
                       {metaApiSaving ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Salvando...
+                          Validando...
                         </>
                       ) : (
                         <>
                           <CheckCircle className="mr-2 h-4 w-4" />
-                          Salvar Configuração
+                          Validar e Salvar
                         </>
                       )}
                     </Button>
@@ -912,43 +1069,32 @@ export default function SuperAdmin() {
 
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => {
-                        setEvolutionSaving(true);
-                        setTimeout(() => {
-                          toast({
-                            title: "Configuração salva",
-                            description: "As credenciais da Evolution API foram atualizadas. Configure os secrets no Supabase.",
-                          });
-                          setEvolutionSaving(false);
-                        }, 1000);
-                      }}
+                      onClick={saveEvolutionCredentials}
                       className="flex-1 bg-green-500 hover:bg-green-600"
                       disabled={evolutionSaving || !evolutionApiUrl || !evolutionApiKey}
                     >
                       {evolutionSaving ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Salvando...
+                          Conectando...
                         </>
                       ) : (
                         <>
                           <CheckCircle className="mr-2 h-4 w-4" />
-                          Salvar Configuração
+                          Conectar e Validar
                         </>
                       )}
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        toast({
-                          title: "Teste de conexão",
-                          description: "Funcionalidade de teste será implementada com as credenciais reais.",
-                        });
-                      }}
-                    >
-                      Testar Conexão
-                    </Button>
                   </div>
+
+                  {evolutionStatus === 'connected' && evolutionInstancesCount !== null && (
+                    <div className="p-3 rounded-lg bg-success/10 border border-success/30">
+                      <p className="text-sm text-success">
+                        <CheckCircle className="h-4 w-4 inline mr-2" />
+                        Conectado! {evolutionInstancesCount} instância(s) encontrada(s).
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Create Instance for Vendedor */}
@@ -1004,21 +1150,9 @@ export default function SuperAdmin() {
                   </div>
 
                   <Button
-                    onClick={() => {
-                      setCreatingInstance(true);
-                      setTimeout(() => {
-                        toast({
-                          title: "Instância criada",
-                          description: "A instância foi criada. O vendedor precisará escanear o QR Code.",
-                        });
-                        setCreatingInstance(false);
-                        setSelectedVendedorForWhatsApp("");
-                        setVendedorInstanceName("");
-                        setVendedorWhatsAppNumber("");
-                      }, 1500);
-                    }}
+                    onClick={createEvolutionInstance}
                     className="w-full bg-purple-500 hover:bg-purple-600"
-                    disabled={creatingInstance || !selectedVendedorForWhatsApp || !vendedorInstanceName || !vendedorWhatsAppNumber || !evolutionApiUrl}
+                    disabled={creatingInstance || !selectedVendedorForWhatsApp || !vendedorInstanceName || !evolutionApiUrl || !evolutionApiKey}
                   >
                     {creatingInstance ? (
                       <>
@@ -1033,7 +1167,21 @@ export default function SuperAdmin() {
                     )}
                   </Button>
 
-                  {!evolutionApiUrl && (
+                  {qrCodeData && (
+                    <div className="p-4 rounded-lg bg-background border border-border text-center">
+                      <p className="text-sm font-medium mb-3">Escaneie o QR Code com o WhatsApp:</p>
+                      <img 
+                        src={qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`} 
+                        alt="QR Code WhatsApp" 
+                        className="mx-auto max-w-[280px] rounded-lg"
+                      />
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Abra o WhatsApp → Menu → Aparelhos conectados → Conectar aparelho
+                      </p>
+                    </div>
+                  )}
+
+                  {(!evolutionApiUrl || !evolutionApiKey) && (
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                       <p className="text-xs text-amber-600 dark:text-amber-400">
                         <strong>Atenção:</strong> Configure a conexão com a Evolution API primeiro para criar instâncias.
