@@ -341,6 +341,141 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'configure_webhook') {
+      const { instanceName, webhookUrl } = instanceData;
+
+      if (!instanceName || !webhookUrl) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Nome da instância e URL do webhook são obrigatórios' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      console.log('Configuring webhook for instance:', instanceName, 'URL:', webhookUrl);
+
+      // Configure webhook in Evolution API
+      const webhookResponse = await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'apikey': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: webhookUrl,
+          webhook_by_events: false,
+          webhook_base64: true,
+          events: [
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'MESSAGES_DELETE',
+            'SEND_MESSAGE',
+            'CONNECTION_UPDATE',
+            'QRCODE_UPDATED',
+          ],
+        }),
+      });
+
+      if (!webhookResponse.ok) {
+        const errorText = await webhookResponse.text();
+        console.error('Error configuring webhook:', errorText);
+        return new Response(
+          JSON.stringify({ success: false, message: `Erro ao configurar webhook: ${errorText}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      const webhookResult = await webhookResponse.json();
+      console.log('Webhook configured:', webhookResult);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Webhook configurado com sucesso',
+          webhook: webhookResult,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'configure_all_webhooks') {
+      const { webhookUrl } = instanceData;
+
+      if (!webhookUrl) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'URL do webhook é obrigatória' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      // First get all instances
+      const instancesResponse = await fetch(`${apiUrl}/instance/fetchInstances`, {
+        headers: {
+          'apikey': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!instancesResponse.ok) {
+        throw new Error(`Evolution API error: ${instancesResponse.status}`);
+      }
+
+      const instances = await instancesResponse.json();
+      console.log('Found instances to configure webhook:', instances.length);
+
+      const results: { instanceName: string; success: boolean; error?: string }[] = [];
+
+      for (const instance of instances) {
+        const instanceName = instance.name || instance.instanceName;
+        if (!instanceName) continue;
+
+        try {
+          const webhookResponse = await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
+            method: 'POST',
+            headers: {
+              'apikey': apiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              url: webhookUrl,
+              webhook_by_events: false,
+              webhook_base64: true,
+              events: [
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'MESSAGES_DELETE',
+                'SEND_MESSAGE',
+                'CONNECTION_UPDATE',
+                'QRCODE_UPDATED',
+              ],
+            }),
+          });
+
+          if (webhookResponse.ok) {
+            results.push({ instanceName, success: true });
+            console.log(`Webhook configured for ${instanceName}`);
+          } else {
+            const errorText = await webhookResponse.text();
+            results.push({ instanceName, success: false, error: errorText });
+            console.error(`Failed to configure webhook for ${instanceName}:`, errorText);
+          }
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : 'Unknown error';
+          results.push({ instanceName, success: false, error: errMsg });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Webhook configurado em ${successCount} de ${results.length} instância(s)`,
+          results,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, message: 'Ação não reconhecida' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }

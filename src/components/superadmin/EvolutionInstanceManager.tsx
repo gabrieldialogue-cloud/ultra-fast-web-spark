@@ -24,6 +24,8 @@ import {
   User,
   Unplug,
   Plug,
+  Webhook,
+  Copy,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,15 +36,20 @@ import {
 } from "@/components/ui/dialog";
 
 interface EvolutionInstance {
+  name?: string; // Evolution API returns "name" for instance name
   instanceName?: string;
   instanceId?: string;
+  id?: string;
   owner?: string;
+  ownerJid?: string;
   profileName?: string;
   profilePictureUrl?: string;
+  profilePicUrl?: string;
   status?: string;
   state?: string;
   serverUrl?: string;
   apikey?: string;
+  number?: string;
   connectionStatus?: 'open' | 'close' | 'connecting' | 'unknown';
   instance?: {
     instanceName?: string;
@@ -109,6 +116,13 @@ export function EvolutionInstanceManager({ vendedores }: Props) {
   const [instanceToAssociate, setInstanceToAssociate] = useState<string>("");
   const [vendedorToAssociate, setVendedorToAssociate] = useState("");
   const [associating, setAssociating] = useState(false);
+  const [configuringWebhook, setConfiguringWebhook] = useState(false);
+
+  // Dynamic webhook URL based on current system
+  const getWebhookUrl = () => {
+    const supabaseUrl = 'https://ptwrrcqttnvcvlnxsvut.supabase.co';
+    return `${supabaseUrl}/functions/v1/whatsapp-webhook?source=evolution`;
+  };
 
   // Load saved Evolution config on mount
   useEffect(() => {
@@ -615,6 +629,47 @@ export function EvolutionInstanceManager({ vendedores }: Props) {
     }
   };
 
+  const configureAllWebhooks = async () => {
+    setConfiguringWebhook(true);
+    try {
+      const webhookUrl = getWebhookUrl();
+      const { data, error } = await supabase.functions.invoke('manage-evolution-instance', {
+        body: {
+          action: 'configure_all_webhooks',
+          evolutionApiUrl: evolutionApiUrl,
+          evolutionApiKey: evolutionApiKey,
+          instanceData: {
+            webhookUrl,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Webhooks configurados",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Erro ao configurar webhooks",
+          description: data?.message || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error configuring webhooks:', error);
+      toast({
+        title: "Erro ao configurar webhooks",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setConfiguringWebhook(false);
+    }
+  };
+
   const getConnectionStatusColor = (instance: EvolutionInstance) => {
     const state = instance.connectionStatus || instance.instance?.state || instance.state;
     switch (state) {
@@ -746,6 +801,37 @@ export function EvolutionInstanceManager({ vendedores }: Props) {
       {/* Instances Management - Only show when connected */}
       {evolutionStatus === 'connected' && (
         <>
+          {/* Webhook URL Info */}
+          <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="font-medium text-foreground flex items-center gap-2">
+                  <Webhook className="h-4 w-4 text-blue-500" />
+                  Webhook URL (para todas as instâncias Evolution)
+                </h4>
+                <code className="text-xs text-muted-foreground bg-background px-2 py-1 rounded mt-1 block break-all">
+                  {getWebhookUrl()}
+                </code>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(getWebhookUrl());
+                  toast({
+                    title: "Copiado!",
+                    description: "URL copiada para a área de transferência",
+                  });
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Clique em "Configurar Webhooks" para aplicar automaticamente a todas as instâncias.
+            </p>
+          </div>
+
           {/* Header with actions */}
           <div className="flex items-center justify-between">
             <div>
@@ -779,6 +865,20 @@ export function EvolutionInstanceManager({ vendedores }: Props) {
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Nova Instância
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={configureAllWebhooks}
+                disabled={configuringWebhook || instances.length === 0}
+                title="Configurar webhook em todas as instâncias"
+              >
+                {configuringWebhook ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Webhook className="h-4 w-4 mr-1" />
+                )}
+                Configurar Webhooks
               </Button>
             </div>
           </div>
@@ -877,11 +977,12 @@ export function EvolutionInstanceManager({ vendedores }: Props) {
           ) : (
             <div className="space-y-3">
               {instances.map((instance) => {
-                const instanceName = instance.instanceName || instance.instance?.instanceName || '';
+                // Evolution API returns "name" for instance name, not "instanceName"
+                const instanceName = instance.name || instance.instanceName || instance.instance?.instanceName || '';
                 const isConnected = instance.connectionStatus === 'open' || instance.instance?.state === 'open';
                 const profileName = instance.profileName || instance.instance?.profileName;
-                const ownerNumber = instance.owner || instance.instance?.owner;
-                const profilePicture = instance.profilePictureUrl || instance.instance?.profilePictureUrl;
+                const ownerNumber = instance.number || instance.ownerJid?.replace('@s.whatsapp.net', '') || instance.owner || instance.instance?.owner;
+                const profilePicture = instance.profilePicUrl || instance.profilePictureUrl || instance.instance?.profilePictureUrl;
                 const associatedVendedor = getAssociatedVendedor(instanceName);
                 
                 return (
