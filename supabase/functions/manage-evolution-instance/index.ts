@@ -287,6 +287,60 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'logout_instance') {
+      const { instanceName } = instanceData;
+
+      const logoutResponse = await fetch(`${apiUrl}/instance/logout/${instanceName}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!logoutResponse.ok) {
+        const errorText = await logoutResponse.text();
+        return new Response(
+          JSON.stringify({ success: false, message: `Erro ao desconectar instância: ${errorText}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      console.log('Instance logged out:', instanceName);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'WhatsApp desconectado com sucesso' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'restart_instance') {
+      const { instanceName } = instanceData;
+
+      const restartResponse = await fetch(`${apiUrl}/instance/restart/${instanceName}`, {
+        method: 'PUT',
+        headers: {
+          'apikey': apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!restartResponse.ok) {
+        const errorText = await restartResponse.text();
+        return new Response(
+          JSON.stringify({ success: false, message: `Erro ao reiniciar instância: ${errorText}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      console.log('Instance restarted:', instanceName);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Instância reiniciada com sucesso' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, message: 'Ação não reconhecida' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }

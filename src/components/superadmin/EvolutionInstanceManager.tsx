@@ -21,6 +21,9 @@ import {
   QrCode,
   Wifi,
   WifiOff,
+  Power,
+  PowerOff,
+  User,
 } from "lucide-react";
 import {
   Dialog,
@@ -44,6 +47,9 @@ interface EvolutionInstance {
   instance?: {
     instanceName?: string;
     state?: string;
+    owner?: string;
+    profileName?: string;
+    profilePictureUrl?: string;
   };
 }
 
@@ -287,6 +293,80 @@ export function EvolutionInstanceManager({
     }
   };
 
+  const disconnectInstance = async (instanceName: string) => {
+    if (!confirm(`Tem certeza que deseja desconectar a instância "${instanceName}"? O WhatsApp será deslogado.`)) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-evolution-instance', {
+        body: {
+          action: 'logout_instance',
+          evolutionApiUrl,
+          evolutionApiKey,
+          instanceData: { instanceName },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Instância desconectada",
+          description: `O WhatsApp da instância "${instanceName}" foi deslogado`,
+        });
+        fetchInstances();
+      } else {
+        toast({
+          title: "Erro ao desconectar",
+          description: data?.message || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error disconnecting instance:', error);
+      toast({
+        title: "Erro ao desconectar instância",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const restartInstance = async (instanceName: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-evolution-instance', {
+        body: {
+          action: 'restart_instance',
+          evolutionApiUrl,
+          evolutionApiKey,
+          instanceData: { instanceName },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Instância reiniciada",
+          description: `A instância "${instanceName}" foi reiniciada`,
+        });
+        fetchInstances();
+      } else {
+        toast({
+          title: "Erro ao reiniciar",
+          description: data?.message || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error restarting instance:', error);
+      toast({
+        title: "Erro ao reiniciar instância",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
   const associateInstanceToVendedor = async () => {
     if (!instanceToAssociate || !vendedorToAssociate) {
       toast({
@@ -496,80 +576,132 @@ export function EvolutionInstanceManager({
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {instances.map((instance) => (
-            <div
-              key={instance.instanceName || instance.instanceId}
-              className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                  (instance.connectionStatus === 'open' || instance.instance?.state === 'open')
-                    ? 'bg-success/20' 
-                    : 'bg-muted'
-                }`}>
-                  {(instance.connectionStatus === 'open' || instance.instance?.state === 'open') ? (
-                    <Wifi className="h-5 w-5 text-success" />
-                  ) : (
-                    <WifiOff className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">
-                    {instance.instanceName || instance.instance?.instanceName}
-                  </p>
-                  {instance.profileName && (
-                    <p className="text-sm text-muted-foreground">{instance.profileName}</p>
-                  )}
-                  {instance.owner && (
-                    <p className="text-xs text-muted-foreground">Número: {instance.owner}</p>
-                  )}
+        <div className="space-y-3">
+          {instances.map((instance) => {
+            const instanceName = instance.instanceName || instance.instance?.instanceName || '';
+            const isConnected = instance.connectionStatus === 'open' || instance.instance?.state === 'open';
+            const profileName = instance.profileName || instance.instance?.profileName;
+            const ownerNumber = instance.owner || instance.instance?.owner;
+            const profilePicture = instance.profilePictureUrl || instance.instance?.profilePictureUrl;
+            
+            return (
+              <div
+                key={instanceName || instance.instanceId}
+                className={`p-4 rounded-lg border transition-colors ${
+                  isConnected 
+                    ? 'border-success/30 bg-success/5' 
+                    : 'border-muted bg-card hover:bg-accent/5'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left side - Instance info */}
+                  <div className="flex items-start gap-3 flex-1">
+                    {/* Profile picture or icon */}
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden flex-shrink-0 ${
+                      isConnected ? 'bg-success/20' : 'bg-muted'
+                    }`}>
+                      {profilePicture ? (
+                        <img 
+                          src={profilePicture} 
+                          alt={profileName || instanceName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : isConnected ? (
+                        <Wifi className="h-6 w-6 text-success" />
+                      ) : (
+                        <WifiOff className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-foreground">
+                          {instanceName}
+                        </p>
+                        <Badge className={getConnectionStatusColor(instance)} variant="secondary">
+                          {getConnectionStatusLabel(instance)}
+                        </Badge>
+                      </div>
+                      
+                      {profileName && (
+                        <p className="text-sm text-foreground mt-1 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {profileName}
+                        </p>
+                      )}
+                      
+                      {ownerNumber && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          📱 {ownerNumber}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right side - Actions */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Connect/Disconnect toggle */}
+                    {isConnected ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => disconnectInstance(instanceName)}
+                        className="text-amber-600 hover:bg-amber-500 hover:text-white"
+                        title="Desconectar WhatsApp"
+                      >
+                        <PowerOff className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchQrCode(instanceName)}
+                        className="text-success hover:bg-success hover:text-success-foreground"
+                        title="Conectar via QR Code"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                    )}
+
+                    {/* Restart button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => restartInstance(instanceName)}
+                      title="Reiniciar instância"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+
+                    {/* Associate button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setInstanceToAssociate(instanceName);
+                        setAssociateDialogOpen(true);
+                      }}
+                      title="Associar a vendedor"
+                    >
+                      <Link className="h-4 w-4" />
+                    </Button>
+
+                    {/* Delete button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteInstance(instanceName)}
+                      className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      title="Deletar instância"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Badge className={getConnectionStatusColor(instance)}>
-                  {getConnectionStatusLabel(instance)}
-                </Badge>
-                
-                {/* QR Code button - only for disconnected instances */}
-                {(instance.connectionStatus !== 'open' && instance.instance?.state !== 'open') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fetchQrCode(instance.instanceName || instance.instance?.instanceName)}
-                    title="Obter QR Code"
-                  >
-                    <QrCode className="h-4 w-4" />
-                  </Button>
-                )}
-
-                {/* Associate button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setInstanceToAssociate(instance.instanceName || instance.instance?.instanceName);
-                    setAssociateDialogOpen(true);
-                  }}
-                  title="Associar a vendedor"
-                >
-                  <Link className="h-4 w-4" />
-                </Button>
-
-                {/* Delete button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteInstance(instance.instanceName || instance.instance?.instanceName)}
-                  className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  title="Deletar instância"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
