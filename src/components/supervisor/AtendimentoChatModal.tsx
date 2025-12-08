@@ -671,8 +671,8 @@ export function AtendimentoChatModal({
                 hoursSinceLast={hoursSinceLast}
               />
             ) : (
-              <div className="shrink-0 border-t border-border/40 bg-gradient-to-br from-background to-muted/20 p-2 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)]">
-                <div className="flex gap-2 items-end bg-card/60 backdrop-blur-sm p-2 rounded-2xl shadow-lg border border-border/50">
+              <div className="shrink-0 border-t border-border/40 bg-gradient-to-br from-background to-muted/20 px-2 py-1.5 shadow-[inset_0_8px_12px_-8px_rgba(0,0,0,0.1)]">
+                <div className="flex gap-2 items-center bg-card/60 backdrop-blur-sm px-2 py-1 rounded-2xl shadow-lg border border-border/50">
                   <FileUpload 
                     onFileSelected={handleFileSelected}
                     disabled={isSending}
@@ -682,10 +682,10 @@ export function AtendimentoChatModal({
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Digite sua mensagem..."
-                    className="min-h-[32px] max-h-[70px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 py-1.5 text-sm"
+                    className="min-h-[28px] max-h-[50px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 py-0.5 text-sm leading-7"
                     disabled={isSending}
                   />
-                  <div className="flex gap-2 items-end relative">
+                  <div className="flex gap-1.5 items-center relative">
                     <AudioRecorder 
                       onAudioRecorded={handleAudioRecorded}
                       disabled={isSending}
