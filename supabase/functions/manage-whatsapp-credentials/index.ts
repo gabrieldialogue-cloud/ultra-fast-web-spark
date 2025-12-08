@@ -73,8 +73,15 @@ serve(async (req) => {
         throw error;
       }
 
-      // Combine main number with database numbers
-      const allNumbers = mainNumber ? [mainNumber, ...(data || [])] : (data || []);
+      // Check if main number was already migrated to DB (by phone_number_id)
+      const mainNumberAlreadyInDb = mainPhoneNumberId && data?.some(
+        (n: { phone_number_id: string }) => n.phone_number_id === mainPhoneNumberId
+      );
+
+      // Only include main number from secrets if it's NOT already in the database
+      const allNumbers = (mainNumber && !mainNumberAlreadyInDb) 
+        ? [mainNumber, ...(data || [])] 
+        : (data || []);
       
       console.log(`Found ${allNumbers.length} Meta numbers (including main: ${mainNumber ? 'yes' : 'no'})`);
 
