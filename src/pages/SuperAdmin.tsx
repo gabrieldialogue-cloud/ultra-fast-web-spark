@@ -201,6 +201,40 @@ export default function SuperAdmin() {
     }
   };
 
+  const migrateMainNumber = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-whatsapp-credentials', {
+        body: { action: 'migrate_main_number' },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Número migrado",
+          description: data.message,
+        });
+        await fetchMetaNumbers();
+        return true;
+      } else {
+        toast({
+          title: "Erro na migração",
+          description: data?.message || "Erro desconhecido",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('Error migrating main number:', error);
+      toast({
+        title: "Erro ao migrar",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -1128,12 +1162,17 @@ export default function SuperAdmin() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={async () => {
                               if (number.is_main) {
-                                toast({
-                                  title: "Número Principal (via Secrets)",
-                                  description: "Este número é gerenciado via variáveis de ambiente. Para desativá-lo, remova WHATSAPP_ACCESS_TOKEN e WHATSAPP_PHONE_NUMBER_ID no painel de Secrets do Supabase.",
-                                });
+                                // Migrate to database first, then toggle
+                                const migrated = await migrateMainNumber();
+                                if (migrated) {
+                                  // After migration, the list will refresh and we can toggle the new DB entry
+                                  toast({
+                                    title: "Número migrado para o banco",
+                                    description: "Agora você pode gerenciar este número pela interface. Clique novamente para alterar o status.",
+                                  });
+                                }
                               } else {
                                 toggleMetaNumberStatus(number.id);
                               }
@@ -1149,19 +1188,22 @@ export default function SuperAdmin() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={async () => {
                               if (number.is_main) {
-                                toast({
-                                  title: "Número Principal (via Secrets)",
-                                  description: "Este número é gerenciado via variáveis de ambiente. Para removê-lo, exclua WHATSAPP_ACCESS_TOKEN e WHATSAPP_PHONE_NUMBER_ID no painel de Secrets do Supabase.",
-                                });
+                                // Migrate to database first, then delete
+                                const migrated = await migrateMainNumber();
+                                if (migrated) {
+                                  toast({
+                                    title: "Número migrado para o banco",
+                                    description: "Agora você pode gerenciar este número pela interface. Clique novamente para excluir.",
+                                  });
+                                }
                               } else {
                                 deleteMetaNumber(number.id);
                               }
                             }}
                             className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                           >
-                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>

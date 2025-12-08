@@ -223,6 +223,88 @@ serve(async (req) => {
       );
     }
 
+    if (action === 'migrate_main_number') {
+      // Migrate the main number from secrets to the database for full management
+      const mainAccessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
+      const mainPhoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+      
+      if (!mainAccessToken || !mainPhoneNumberId) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Número principal não está configurado nos secrets' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      // Check if already migrated
+      const { data: existing } = await supabase
+        .from('meta_whatsapp_numbers')
+        .select('id')
+        .eq('phone_number_id', mainPhoneNumberId)
+        .maybeSingle();
+
+      if (existing) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Número já está no banco de dados', alreadyMigrated: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Validate with Meta API
+      const phoneInfoResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${mainPhoneNumberId}?fields=display_phone_number,verified_name`,
+        {
+          headers: {
+            'Authorization': `Bearer ${mainAccessToken}`,
+          },
+        }
+      );
+
+      if (!phoneInfoResponse.ok) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Falha ao validar credenciais do número principal' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      const phoneInfo = await phoneInfoResponse.json();
+
+      // Save to database
+      const { data, error } = await supabase
+        .from('meta_whatsapp_numbers')
+        .insert({
+          name: 'Número Principal',
+          phone_number_id: mainPhoneNumberId,
+          access_token: mainAccessToken,
+          business_account_id: Deno.env.get('WHATSAPP_BUSINESS_ACCOUNT_ID') || null,
+          webhook_verify_token: Deno.env.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN') || null,
+          phone_display: phoneInfo.display_phone_number,
+          verified_name: phoneInfo.verified_name,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error migrating main number:', error);
+        throw error;
+      }
+
+      console.log('Main number migrated to database:', data.id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Número principal migrado para o banco de dados! Agora pode ser gerenciado pela interface.',
+          data: {
+            id: data.id,
+            name: data.name,
+            phoneDisplay: phoneInfo.display_phone_number,
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'save_evolution_credentials') {
       const { apiUrl, apiKey } = credentials;
       
