@@ -359,61 +359,75 @@ export default function SupervisorContatos() {
     
     return (
       <Card className={`hover:border-primary/50 transition-colors ${hasUnassigned && showUnassignedBadge ? 'border-amber-500/50 bg-amber-500/5' : ''}`}>
-        <CardHeader className="py-3">
-          <div className="flex items-start gap-3">
-            <ClientAvatar name={cliente.nome} imageUrl={null} className="h-10 w-10" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <CardTitle className="text-base">{cliente.nome}</CardTitle>
-                {hasUnassigned && showUnassignedBadge && (
-                  <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    Não Atribuído
-                  </Badge>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {cliente.telefone}
+        <CardHeader className="p-4 pb-3">
+          {/* Header with avatar and actions */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <ClientAvatar name={cliente.nome} imageUrl={null} className="h-10 w-10 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base truncate">{cliente.nome}</CardTitle>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                  <Phone className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{cliente.telefone}</span>
                 </div>
-                {cliente.email && (
-                  <div className="flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    {cliente.email}
-                  </div>
-                )}
               </div>
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingCliente(cliente)}>
-                <Edit className="h-4 w-4" />
+            <div className="flex gap-0.5 shrink-0">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingCliente(cliente)}>
+                <Edit className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewingHistory(cliente)}>
-                <History className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewingHistory(cliente)}>
+                <History className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeletingCliente(cliente)}>
-                <Trash2 className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletingCliente(cliente)}>
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
+          
+          {/* Badge and email row */}
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {hasUnassigned && showUnassignedBadge && (
+              <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Não Atribuído
+              </Badge>
+            )}
+            {cliente.email && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                <Mail className="h-3 w-3 shrink-0" />
+                <span className="truncate">{cliente.email}</span>
+              </span>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="pt-0 pb-3">
+        
+        <CardContent className="px-4 pt-0 pb-4">
           {cliente.atendimentos.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {cliente.atendimentos.slice(0, 2).map((atendimento) => (
-                <div key={atendimento.id} className={`flex items-center justify-between p-2 rounded-md border text-sm ${atendimento.vendedor_fixo_id === null ? 'bg-amber-500/10 border-amber-500/30' : 'bg-muted/30'}`}>
-                  <div className="flex items-center gap-2">
-                    <Car className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{atendimento.marca_veiculo}{atendimento.modelo_veiculo && ` ${atendimento.modelo_veiculo}`}</span>
+                <div 
+                  key={atendimento.id} 
+                  className={`flex items-center justify-between gap-2 p-2.5 rounded-lg border text-sm ${
+                    atendimento.vendedor_fixo_id === null 
+                      ? 'bg-amber-500/10 border-amber-500/30' 
+                      : 'bg-muted/30 border-border/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Car className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="truncate font-medium">
+                      {atendimento.marca_veiculo}
+                      {atendimento.modelo_veiculo && ` ${atendimento.modelo_veiculo}`}
+                    </span>
                   </div>
-                  <Badge variant="outline" className={`text-xs ${getStatusColor(atendimento.status)}`}>
+                  <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(atendimento.status)}`}>
                     {getStatusLabel(atendimento.status)}
                   </Badge>
                 </div>
               ))}
               {cliente.atendimentos.length > 2 && (
-                <p className="text-xs text-muted-foreground text-center">
+                <p className="text-xs text-muted-foreground text-center pt-1">
                   + {cliente.atendimentos.length - 2} atendimento(s)
                 </p>
               )}
