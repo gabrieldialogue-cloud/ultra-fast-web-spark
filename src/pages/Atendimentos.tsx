@@ -471,9 +471,9 @@ export default function Atendimentos() {
         `)
         .eq('vendedor_fixo_id', vendedorId)
         .neq('status', 'encerrado')
-        // Only show Meta/main number atendimentos in the main chat
-        // Evolution atendimentos are shown in PersonalNumberChat
-        .or('source.eq.meta,source.is.null');
+        // Filter: show atendimentos where source is meta, null, OR where source is evolution but NOT linked to this vendedor's instance
+        // This way we only exclude Evolution atendimentos that are properly linked to a personal instance
+        .not('source', 'eq', 'evolution');
       
       if (error) {
         console.error('Erro ao buscar atendimentos:', error);

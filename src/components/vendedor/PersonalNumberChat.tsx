@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { AudioRecorder } from "@/components/chat/AudioRecorder";
 import { ClientAvatar } from "@/components/ui/client-avatar";
 import { WhatsAppWindowAlert } from "@/components/chat/WhatsAppWindowAlert";
+import { UnifiedSearch } from "@/components/atendimento/UnifiedSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
@@ -15,13 +17,16 @@ import { useLastMessages } from "@/hooks/useLastMessages";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { useWhatsAppWindow } from "@/hooks/useWhatsAppWindow";
 import { useTypingBroadcast } from "@/hooks/useTypingBroadcast";
+import { useClientPresence } from "@/hooks/useClientPresence";
 import { compressImage, shouldCompress } from "@/lib/imageCompression";
 import { 
-  Phone, MessageSquare, Send, Paperclip, Loader2, Clock, User,
-  Check, CheckCheck, Sparkles, X, AlertCircle
+  Phone, MessageSquare, Send, Paperclip, Loader2, Clock, Bot,
+  Check, CheckCheck, Sparkles, X, AlertCircle, Image as ImageIcon,
+  File, Images, Mic, Copy, Trash2
 } from "lucide-react";
-import { format, differenceInHours } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DeleteContactDialog } from "@/components/contatos/DeleteContactDialog";
 
 interface PersonalNumberChatProps {
   vendedorId: string;
@@ -31,7 +36,6 @@ interface PersonalNumberChatProps {
 export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberChatProps) {
   const [evolutionInstance, setEvolutionInstance] = useState<string | null>(null);
   const [evolutionStatus, setEvolutionStatus] = useState<string | null>(null);
-  const [evolutionConnected, setEvolutionConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [atendimentos, setAtendimentos] = useState<any[]>([]);
   const [selectedAtendimentoId, setSelectedAtendimentoId] = useState<string | null>(null);
@@ -42,11 +46,25 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [suppressAutoScroll, setSuppressAutoScroll] = useState(false);
+  const [deletingContactInfo, setDeletingContactInfo] = useState<{ clienteId: string; clienteNome: string } | null>(null);
   
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const prevSelectedAtendimentoId = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  // Atualiza "agora" a cada minuto para recalcular o "visto por último"
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNow(Date.now());
+    }, 60_000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Fetch vendedor's Evolution instance and sync status
   useEffect(() => {
@@ -94,7 +112,6 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
     try {
       console.log('[PersonalNumberChat] Syncing status for instance:', instanceName);
       
-      // Get Evolution config from database
       const { data: config } = await supabase
         .from('evolution_config')
         .select('api_url, api_key, is_connected')
@@ -105,7 +122,6 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
         return;
       }
       
-      // Check status from Evolution API and update database
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session) return;
       
@@ -121,7 +137,7 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
           evolutionApiKey: config.api_key,
           instanceData: { 
             instanceName,
-            updateDatabase: true // This will sync status to DB
+            updateDatabase: true
           }
         })
       });
@@ -130,7 +146,6 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
       console.log('[PersonalNumberChat] Status sync result:', result);
       
       if (result.success && result.status) {
-        // Map Evolution status to our format
         let newStatus = 'disconnected';
         if (result.status === 'open' || result.status === 'connected') {
           newStatus = 'connected';
@@ -141,7 +156,6 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
         }
         
         setEvolutionStatus(newStatus);
-        setEvolutionConnected(true); // Show chat if instance exists
         console.log('[PersonalNumberChat] Updated status to:', newStatus);
       }
     } catch (error) {
@@ -213,6 +227,43 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
     }
   };
 
+  // Realtime updates for atendimentos list
+  useEffect(() => {
+    if (evolutionInstance) {
+      const channel = supabase
+        .channel('atendimentos-realtime-personal', {
+          config: { broadcast: { self: false } }
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'atendimentos'
+          },
+          () => {
+            fetchAtendimentos(evolutionInstance);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensagens'
+          },
+          () => {
+            fetchAtendimentos(evolutionInstance);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [evolutionInstance]);
+
   // Realtime messages
   const {
     messages,
@@ -224,7 +275,8 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
     notifyMessageChange,
     loadMoreMessages,
     hasMoreMessages,
-    isLoadingOlder
+    isLoadingOlder,
+    markMessagesAsRead
   } = useRealtimeMessages({
     atendimentoId: selectedAtendimentoId,
     vendedorId,
@@ -241,6 +293,12 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
 
   // Last messages
   const { lastMessages } = useLastMessages({
+    atendimentos,
+    enabled: true
+  });
+
+  // Client presence
+  const { clientPresence } = useClientPresence({
     atendimentos,
     enabled: true
   });
@@ -271,6 +329,64 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
     );
   });
 
+  // Auto scroll to bottom quando um novo atendimento é selecionado
+  useEffect(() => {
+    if (
+      selectedAtendimentoId &&
+      prevSelectedAtendimentoId.current !== selectedAtendimentoId
+    ) {
+      prevSelectedAtendimentoId.current = selectedAtendimentoId;
+      
+      setTimeout(() => {
+        if (scrollRef.current) {
+          const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollElement) {
+            scrollElement.scrollTop = scrollElement.scrollHeight;
+          }
+        }
+      }, 150);
+    }
+  }, [selectedAtendimentoId]);
+
+  // Also scroll when new message arrives
+  useEffect(() => {
+    if (messages.length > 0 && !isLoadingOlder && !suppressAutoScroll) {
+      const lastMessage = messages[messages.length - 1];
+
+      if (!lastMessage || lastMessage.id === lastMessageIdRef.current) return;
+      lastMessageIdRef.current = lastMessage.id;
+
+      if (lastMessage.remetente_tipo !== 'vendedor') {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    }
+  }, [messages, isLoadingOlder, suppressAutoScroll]);
+
+  // Handler para carregar mensagens antigas preservando a posição do scroll
+  const handleLoadOlderMessages = async () => {
+    setSuppressAutoScroll(true);
+
+    const viewport = scrollRef.current?.querySelector(
+      '[data-radix-scroll-area-viewport]'
+    ) as HTMLDivElement | null;
+
+    const prevScrollHeight = viewport?.scrollHeight ?? 0;
+    const prevScrollTop = viewport?.scrollTop ?? 0;
+
+    await loadMoreMessages();
+
+    requestAnimationFrame(() => {
+      const newScrollHeight = viewport?.scrollHeight ?? 0;
+      if (viewport) {
+        const deltaHeight = newScrollHeight - prevScrollHeight;
+        viewport.scrollTop = prevScrollTop + deltaHeight;
+      }
+      setTimeout(() => setSuppressAutoScroll(false), 100);
+    });
+  };
+
   // Handle message input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessageInput(e.target.value);
@@ -278,7 +394,7 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
   };
 
   // Handle keypress
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -323,7 +439,6 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
     try {
       addOptimisticMessage(optimisticMessage);
 
-      // Save to database
       const { data: dbData, error: dbError } = await supabase
         .from('mensagens')
         .insert({
@@ -368,6 +483,10 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
           }).catch(err => console.error('WhatsApp send error:', err));
         }
       }
+
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      }, 100);
     } catch (error) {
       console.error('Error sending message:', error);
       removeOptimisticMessage(optimisticMessage.id);
@@ -375,94 +494,142 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
       toast.error("Erro ao enviar mensagem");
     } finally {
       setIsSending(false);
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 50);
     }
   };
 
   // Handle file selection
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedAtendimentoId) return;
+    if (!file) return;
+
+    if (file.size > 20971520) {
+      toast.error("Arquivo muito grande. Máximo de 20MB.");
+      return;
+    }
+
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed',
+      'text/plain', 'text/csv'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Tipo de arquivo não suportado.");
+      return;
+    }
+
+    if (shouldCompress(file)) {
+      try {
+        toast.info("Comprimindo imagem...");
+        const compressedBlob = await compressImage(file);
+        const compressedFile = Object.assign(compressedBlob, {
+          name: file.name.replace(/\.[^.]+$/, '.jpg'),
+          lastModified: Date.now(),
+        }) as File;
+        setSelectedFile(compressedFile);
+        toast.success("Imagem comprimida com sucesso!");
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast.error("Erro ao comprimir imagem. Usando original.");
+        setSelectedFile(file);
+      }
+    } else {
+      setSelectedFile(file);
+    }
+  };
+
+  // Upload file and send message
+  const handleSendWithFile = async () => {
+    if (!selectedFile || !selectedAtendimentoId || !vendedorId) return;
 
     setIsUploading(true);
+    setIsTyping(false);
+
     try {
-      let fileToUpload: File | Blob = file;
-      let contentType = file.type;
-      let finalFileName = file.name;
-
-      // Compress images
-      if (file.type.startsWith('image/') && shouldCompress(file)) {
-        toast.info("Comprimindo imagem...");
-        fileToUpload = await compressImage(file);
-        contentType = 'image/jpeg';
-        const nameParts = file.name.split('.');
-        nameParts[nameParts.length - 1] = 'jpg';
-        finalFileName = nameParts.join('.');
-      }
-
-      const timestamp = Date.now();
-      const fileName = `${timestamp}-${finalFileName}`;
-      const filePath = `${selectedAtendimentoId}/${fileName}`;
-
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${selectedAtendimentoId}/${Date.now()}.${fileExt}`;
+      
       const { error: uploadError } = await supabase.storage
         .from('chat-files')
-        .upload(filePath, fileToUpload, { contentType });
+        .upload(fileName, selectedFile);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
         .from('chat-files')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
-      const isImage = file.type.startsWith('image/');
+      const isImage = selectedFile.type.startsWith('image/');
+      const attachmentType = isImage ? 'image' : 'document';
       const mediaType = isImage ? 'image' : 'document';
 
-      // Save message
-      const { data: msgData, error: msgError } = await supabase
+      if (!clienteTelefone) {
+        throw new Error('Telefone do cliente não encontrado');
+      }
+
+      // Send via Evolution API
+      const { data: session } = await supabase.auth.getSession();
+      if (session?.session && evolutionInstance) {
+        await fetch(`https://ptwrrcqttnvcvlnxsvut.supabase.co/functions/v1/whatsapp-send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.session.access_token}`
+          },
+          body: JSON.stringify({
+            to: clienteTelefone,
+            mediaType,
+            mediaUrl: publicUrl,
+            filename: selectedFile.name,
+            caption: messageInput.trim() || (isImage ? undefined : selectedFile.name),
+            source: 'evolution',
+            evolutionInstanceName: evolutionInstance
+          })
+        });
+      }
+
+      // Save message with attachment
+      const { error: messageError } = await supabase
         .from('mensagens')
         .insert({
           atendimento_id: selectedAtendimentoId,
-          conteudo: isImage ? '[Imagem]' : `[Documento: ${finalFileName}]`,
-          remetente_tipo: 'vendedor',
           remetente_id: vendedorId,
+          remetente_tipo: 'vendedor',
+          conteudo: messageInput.trim() || (isImage ? '[Imagem]' : `[Documento: ${selectedFile.name}]`),
           attachment_url: publicUrl,
-          attachment_type: mediaType,
-          attachment_filename: finalFileName,
+          attachment_type: attachmentType,
+          attachment_filename: selectedFile.name,
           source: 'evolution'
-        })
-        .select()
-        .single();
+        });
 
-      if (msgError) throw msgError;
+      if (messageError) throw messageError;
 
-      // Send via Evolution
-      if (clienteTelefone && evolutionInstance) {
-        const { data: session } = await supabase.auth.getSession();
-        if (session?.session) {
-          await fetch(`https://ptwrrcqttnvcvlnxsvut.supabase.co/functions/v1/whatsapp-send`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.session.access_token}`
-            },
-            body: JSON.stringify({
-              to: clienteTelefone,
-              mediaType,
-              mediaUrl: publicUrl,
-              filename: finalFileName,
-              source: 'evolution',
-              evolutionInstanceName: evolutionInstance
-            })
-          });
-        }
+      setMessageInput("");
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
+      
+      toast.success("Arquivo enviado com sucesso!");
 
-      toast.success(`${isImage ? 'Imagem' : 'Documento'} enviado!`);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error("Erro ao enviar arquivo");
+      toast.error(`Erro ao enviar arquivo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 50);
     }
   };
 
@@ -484,104 +651,118 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
         .from('chat-audios')
         .getPublicUrl(filePath);
 
-      // Save message
-      const { data: msgData, error: msgError } = await supabase
-        .from('mensagens')
-        .insert({
-          atendimento_id: selectedAtendimentoId,
-          conteudo: '[Áudio]',
-          remetente_tipo: 'vendedor',
-          remetente_id: vendedorId,
-          attachment_url: publicUrl,
-          attachment_type: 'audio',
-          attachment_filename: fileName,
-          source: 'evolution'
-        })
-        .select()
-        .single();
-
-      if (msgError) throw msgError;
-
-      // Send via Evolution
-      if (clienteTelefone && evolutionInstance) {
-        const { data: session } = await supabase.auth.getSession();
-        if (session?.session) {
-          await fetch(`https://ptwrrcqttnvcvlnxsvut.supabase.co/functions/v1/whatsapp-send`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.session.access_token}`
-            },
-            body: JSON.stringify({
-              to: clienteTelefone,
-              audioUrl: publicUrl,
-              source: 'evolution',
-              evolutionInstanceName: evolutionInstance
-            })
-          });
-        }
+      if (!clienteTelefone) {
+        throw new Error('Telefone do cliente não encontrado');
       }
 
-      toast.success("Áudio enviado!");
+      // Send audio via Evolution API
+      const { data: session } = await supabase.auth.getSession();
+      if (session?.session && evolutionInstance) {
+        const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+          body: {
+            to: clienteTelefone,
+            audioUrl: publicUrl,
+            source: 'evolution',
+            evolutionInstanceName: evolutionInstance
+          },
+        });
+
+        if (error) throw error;
+
+        // Save message to database
+        const { error: dbError } = await supabase
+          .from('mensagens')
+          .insert({
+            atendimento_id: selectedAtendimentoId,
+            conteudo: '[Áudio]',
+            remetente_tipo: 'vendedor',
+            remetente_id: vendedorId,
+            attachment_url: publicUrl,
+            attachment_type: 'audio',
+            attachment_filename: fileName,
+            whatsapp_message_id: data?.messageId,
+            source: 'evolution'
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      toast.success('Áudio enviado com sucesso!');
     } catch (error) {
-      console.error('Error sending audio:', error);
-      toast.error("Erro ao enviar áudio");
+      console.error("Erro ao enviar áudio:", error);
+      toast.error('Erro ao enviar áudio');
       throw error;
     }
   };
 
-  // Select atendimento
-  const handleSelectAtendimento = (atendimentoId: string) => {
-    setSelectedAtendimentoId(atendimentoId);
-    clearUnreadCount(atendimentoId);
-  };
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    if (messages.length > 0 && !isLoadingOlder) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isLoadingOlder]);
-
-  // Generate AI suggestion
+  // Generate AI response suggestion
   const handleGenerateSuggestion = async () => {
-    if (messages.length === 0) return;
+    if (!selectedAtendimentoId || isGeneratingSuggestion) return;
 
-    setIsGeneratingSuggestion(true);
     try {
-      const recentMessages = messages.slice(-10).map(m => ({
-        role: m.remetente_tipo === 'cliente' ? 'cliente' : 'vendedor',
-        content: m.conteudo
+      setIsGeneratingSuggestion(true);
+
+      const recentMessages = messages.slice(-5).map(msg => ({
+        role: msg.remetente_tipo === 'cliente' ? 'user' : 'assistant',
+        content: msg.conteudo
       }));
+
+      const lastClientMessage = [...messages].reverse().find(
+        msg => msg.remetente_tipo === 'cliente'
+      );
+
+      if (!lastClientMessage) {
+        toast.error("Nenhuma mensagem do cliente encontrada");
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('generate-response-suggestion', {
         body: {
-          messages: recentMessages,
-          clienteNome: selectedAtendimento?.clientes?.push_name || selectedAtendimento?.clientes?.nome || 'Cliente',
-          vendedorNome
+          clientMessage: lastClientMessage.conteudo,
+          conversationContext: recentMessages.slice(0, -1)
         }
       });
 
-      if (error) throw error;
-      if (data?.suggestion) {
-        setMessageInput(data.suggestion);
-        messageInputRef.current?.focus();
-        toast.success("Sugestão gerada!");
+      if (error) {
+        toast.error(`Erro: ${error.message || 'Falha ao gerar sugestão'}`);
+        return;
       }
+
+      if (!data?.suggestedResponse || data.suggestedResponse.trim() === '') {
+        toast.error("A IA não conseguiu gerar uma resposta. Tente novamente.");
+        return;
+      }
+
+      setMessageInput(data.suggestedResponse);
+      messageInputRef.current?.focus();
+      toast.success("Sugestão gerada! Revise antes de enviar.");
     } catch (error) {
-      console.error('Error generating suggestion:', error);
-      toast.error("Erro ao gerar sugestão");
+      console.error('Erro ao gerar sugestão:', error);
+      toast.error("Erro ao gerar sugestão de resposta");
     } finally {
       setIsGeneratingSuggestion(false);
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+      ia_respondendo: { label: "IA Respondendo", variant: "secondary" },
+      aguardando_cliente: { label: "Aguardando Cliente", variant: "outline" },
+      vendedor_intervindo: { label: "Você está atendendo", variant: "default" },
+      aguardando_orcamento: { label: "Aguardando Orçamento", variant: "secondary" },
+      aguardando_fechamento: { label: "Aguardando Fechamento", variant: "default" },
+    };
+
+    const config = statusMap[status] || { label: status, variant: "outline" as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
   // Loading state
   if (loading) {
     return (
-      <Card className="rounded-2xl border-accent/30 bg-gradient-to-br from-accent/5 to-transparent shadow-lg">
+      <Card className="rounded-2xl">
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );
@@ -590,313 +771,502 @@ export function PersonalNumberChat({ vendedorId, vendedorNome }: PersonalNumberC
   // No Evolution instance configured
   if (!evolutionInstance) {
     return (
-      <Card className="rounded-2xl border-accent/30 bg-gradient-to-br from-accent/5 to-transparent shadow-lg">
-        <CardHeader className="border-b border-accent/10">
-          <CardTitle className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-accent" />
-            Número Pessoal
-          </CardTitle>
-          <CardDescription>
-            Configure para receber atendimentos diretos
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="rounded-xl border-2 border-dashed border-accent/30 bg-accent/5 p-8 text-center">
-            <Phone className="mx-auto h-12 w-12 text-accent/40 mb-3" />
-            <p className="text-base font-medium text-foreground mb-2">
-              Configure seu Número Pessoal
-            </p>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Solicite ao administrador para conectar seu WhatsApp pessoal através do painel de{" "}
-              <span className="font-semibold text-accent">Super Admin</span>.
-            </p>
-          </div>
+      <Card className="rounded-2xl border-accent bg-gradient-to-br from-accent/10 to-transparent">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <Phone className="h-12 w-12 text-muted-foreground/40 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Número Pessoal Não Configurado</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Você ainda não tem uma instância do WhatsApp configurada para seu número pessoal. 
+            Entre em contato com o administrador para configurar sua instância.
+          </p>
         </CardContent>
       </Card>
     );
   }
 
-  // Not connected - only show if explicitly disconnected
-  if (!evolutionConnected && evolutionInstance) {
+  // Evolution not connected
+  if (evolutionStatus !== 'connected') {
     return (
-      <Card className="rounded-2xl border-yellow-500/30 bg-gradient-to-br from-yellow-500/5 to-transparent shadow-lg">
-        <CardHeader className="border-b border-yellow-500/10">
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-yellow-500" />
-            WhatsApp Desconectado
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="rounded-xl border-2 border-dashed border-yellow-500/30 bg-yellow-500/5 p-8 text-center">
-            <Phone className="mx-auto h-12 w-12 text-yellow-500/40 mb-3" />
-            <p className="text-base font-medium text-foreground mb-2">
-              Seu WhatsApp pessoal está desconectado
-            </p>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Solicite ao administrador para reconectar sua instância no painel de Super Admin.
-            </p>
-          </div>
+      <Card className="rounded-2xl border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-transparent">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">WhatsApp Desconectado</h3>
+          <p className="text-sm text-muted-foreground max-w-md mb-4">
+            Sua instância do WhatsApp ({evolutionInstance}) está desconectada. 
+            Entre em contato com o administrador para reconectar.
+          </p>
+          <Badge variant="outline" className="border-amber-500/50 text-amber-600">
+            Status: {evolutionStatus || 'Desconhecido'}
+          </Badge>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Métricas */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl border-accent bg-gradient-to-br from-accent/10 to-transparent">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-accent">
-              <MessageSquare className="h-4 w-4" />
-              Conversas Ativas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-accent">{atendimentos.length}</p>
-          </CardContent>
-        </Card>
-
-        <Card className={`rounded-2xl ${evolutionStatus === 'open' || evolutionStatus === 'connected' ? 'border-success bg-gradient-to-br from-success/10 to-transparent' : 'border-yellow-500 bg-gradient-to-br from-yellow-500/10 to-transparent'}`}>
-          <CardHeader className="pb-2">
-            <CardTitle className={`flex items-center gap-2 text-sm ${evolutionStatus === 'open' || evolutionStatus === 'connected' ? 'text-success' : 'text-yellow-500'}`}>
-              {evolutionStatus === 'open' || evolutionStatus === 'connected' ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-              Instância
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm font-medium truncate">{evolutionInstance}</p>
-            <Badge 
-              variant="outline" 
-              className={`mt-1 ${evolutionStatus === 'open' || evolutionStatus === 'connected' 
-                ? 'bg-success/10 text-success border-success/30' 
-                : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30'}`}
-            >
-              {evolutionStatus === 'open' || evolutionStatus === 'connected' ? 'Conectado' : 
-               evolutionStatus === 'pending_qr' ? 'Aguardando QR' : 
-               evolutionStatus === 'connecting' ? 'Conectando...' : 'Desconectado'}
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border-primary bg-gradient-to-br from-primary/10 to-transparent">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm text-primary">
-              <Clock className="h-4 w-4" />
-              Não Lidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">
-              {Object.values(unreadCounts).reduce((a, b) => a + b, 0)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Chat Interface */}
-      <Card className="rounded-2xl border-accent/30 shadow-lg overflow-hidden">
-        {atendimentos.length === 0 ? (
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <MessageSquare className="h-12 w-12 text-muted-foreground/40 mb-3" />
-            <p className="text-muted-foreground">Nenhuma conversa ativa no número pessoal</p>
-          </CardContent>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 h-[600px]">
-            {/* Conversations List */}
-            <div className="border-r border-border bg-card/50">
-              <div className="p-3 border-b border-border">
-                <input
-                  type="text"
-                  placeholder="Buscar conversa..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-              </div>
-              <ScrollArea className="h-[calc(600px-57px)]">
-                {filteredAtendimentos.map((atendimento) => {
-                  const isSelected = selectedAtendimentoId === atendimento.id;
-                  const unread = unreadCounts[atendimento.id] || 0;
-                  const lastMsg = lastMessages[atendimento.id];
-
-                  return (
-                    <div
-                      key={atendimento.id}
-                      onClick={() => handleSelectAtendimento(atendimento.id)}
-                      className={`p-3 cursor-pointer border-b border-border/50 transition-colors ${
-                        isSelected ? 'bg-accent/10' : 'hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <ClientAvatar
-                          imageUrl={atendimento.clientes?.profile_picture_url}
-                          name={atendimento.clientes?.push_name || atendimento.clientes?.nome}
-                          className="h-10 w-10"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-sm truncate">
-                              {atendimento.clientes?.push_name || atendimento.clientes?.nome || 'Cliente'}
-                            </span>
-                            {unread > 0 && (
-                              <Badge className="bg-accent text-white text-xs px-1.5">
-                                {unread}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {lastMsg?.conteudo || atendimento.marca_veiculo}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </ScrollArea>
+    <>
+      <Card className="rounded-2xl border-primary bg-gradient-to-br from-primary/10 via-secondary/5 to-transparent shadow-xl transition-all duration-500 ease-in-out">
+        <CardHeader className="border-b border-primary/20 bg-gradient-to-r from-primary/10 to-secondary/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-3 text-2xl">
+                <Phone className="h-6 w-6 text-primary" />
+                Número Pessoal - Chat ao Vivo
+              </CardTitle>
+              <CardDescription className="mt-2 text-base">
+                Conversas do seu número pessoal via Evolution API
+              </CardDescription>
             </div>
-
-            {/* Chat Area */}
-            <div className="col-span-2 flex flex-col">
-              {!selectedAtendimentoId ? (
-                <div className="flex-1 flex items-center justify-center bg-muted/20">
-                  <div className="text-center">
-                    <MessageSquare className="h-16 w-16 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">Selecione uma conversa</p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Chat Header */}
-                  <div className="p-3 border-b border-border bg-card flex items-center gap-3">
-                    <ClientAvatar
-                      imageUrl={selectedAtendimento?.clientes?.profile_picture_url}
-                      name={selectedAtendimento?.clientes?.push_name || selectedAtendimento?.clientes?.nome}
-                      className="h-10 w-10"
-                    />
-                    <div>
-                      <p className="font-medium text-sm">
-                        {selectedAtendimento?.clientes?.push_name || selectedAtendimento?.clientes?.nome}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedAtendimento?.clientes?.telefone}
-                      </p>
-                    </div>
-                    {isClientTyping && (
-                      <Badge variant="outline" className="ml-auto text-xs">
-                        digitando...
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Messages */}
-                  <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-                    {hasMoreMessages && (
-                      <div className="flex justify-center mb-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={loadMoreMessages}
-                          disabled={isLoadingOlder}
-                        >
-                          {isLoadingOlder ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Carregar anteriores"
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                    <div className="space-y-3">
-                      {messages.map((msg) => (
-                        <ChatMessage
-                          key={msg.id}
-                          messageId={msg.id}
-                          remetenteTipo={msg.remetente_tipo as "cliente" | "ia" | "supervisor" | "vendedor"}
-                          conteudo={msg.conteudo}
-                          createdAt={msg.created_at}
-                          attachmentUrl={msg.attachment_url}
-                          attachmentType={msg.attachment_type}
-                          attachmentFilename={msg.attachment_filename}
-                        />
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  </ScrollArea>
-
-                  {/* Input */}
-                  {isWindowClosed ? (
-                    <WhatsAppWindowAlert
-                      lastClientMessageAt={lastClientMessageAt}
-                      hoursSinceLast={hoursSinceLast}
-                    />
-                  ) : (
-                    <div className="p-3 border-t border-border bg-card">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                      />
-                      <div className="flex gap-2 items-end bg-muted/30 p-2 rounded-xl">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading || isSending}
-                          className="h-9 w-9"
-                        >
-                          <Paperclip className="h-4 w-4" />
-                        </Button>
-                        <Textarea
-                          ref={messageInputRef}
-                          value={messageInput}
-                          onChange={handleInputChange}
-                          onKeyPress={handleKeyPress}
-                          placeholder="Digite sua mensagem..."
-                          className="min-h-[36px] max-h-[100px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0"
-                          disabled={isSending || isUploading}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleGenerateSuggestion}
-                          disabled={isGeneratingSuggestion || messages.length === 0}
-                          className="h-9 w-9"
-                          title="Gerar sugestão com IA"
-                        >
-                          {isGeneratingSuggestion ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4 text-purple-500" />
-                          )}
-                        </Button>
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!messageInput.trim() || isSending || isUploading}
-                          size="icon"
-                          className="h-9 w-9 bg-gradient-to-br from-green-500 to-green-600"
-                        >
-                          {isSending || isUploading ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-white" />
-                          ) : (
-                            <Send className="h-4 w-4 text-white" />
-                          )}
-                        </Button>
-                        <AudioRecorder
-                          onAudioRecorded={handleAudioRecorded}
-                          disabled={isSending || isUploading}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 px-4 py-2 text-lg font-bold">
+                {filteredAtendimentos.length} ativas
+              </Badge>
+              <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-1">
+                {evolutionInstance}
+              </Badge>
             </div>
           </div>
-        )}
+        </CardHeader>
+
+        <CardContent className="p-6">
+          {atendimentos.length === 0 ? (
+            <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-12 text-center">
+              <MessageSquare className="mx-auto h-16 w-16 text-primary/40 mb-4" />
+              <p className="text-lg font-medium text-foreground mb-2">
+                Nenhuma conversa ativa no momento
+              </p>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Quando clientes enviarem mensagens para seu número pessoal, eles aparecerão aqui.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
+              {/* Lista de Atendimentos */}
+              <Card className="lg:col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Conversas Ativas ({filteredAtendimentos.length})
+                  </CardTitle>
+                  <div className="mt-3">
+                    <UnifiedSearch 
+                      onSearchChange={(query) => setSearchTerm(query)}
+                      onSelectMessage={(atendimentoId, messageId) => {
+                        setSelectedAtendimentoId(atendimentoId);
+                        setHighlightedMessageId(messageId);
+                        clearUnreadCount(atendimentoId);
+                        markMessagesAsRead(atendimentoId);
+                        setTimeout(() => setHighlightedMessageId(null), 3000);
+                      }}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[70vh]">
+                    {filteredAtendimentos.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full px-4 py-6 text-muted-foreground">
+                        <MessageSquare className="h-6 w-6 mb-2 opacity-50" />
+                        <p className="text-xs">Nenhum atendimento encontrado</p>
+                      </div>
+                    ) : (
+                      <div className="relative space-y-2 px-3 py-2">
+                        <div className="relative space-y-2">
+                          {[...filteredAtendimentos].sort((a, b) => {
+                            const unreadA = unreadCounts[a.id] || 0;
+                            const unreadB = unreadCounts[b.id] || 0;
+                            
+                            if (unreadA > 0 && unreadB === 0) return -1;
+                            if (unreadA === 0 && unreadB > 0) return 1;
+                            
+                            const dateA = new Date(lastMessages[a.id]?.createdAt || a.created_at).getTime();
+                            const dateB = new Date(lastMessages[b.id]?.createdAt || b.created_at).getTime();
+                            return dateB - dateA;
+                          }).map((atendimento) => (
+                            <button
+                              key={atendimento.id}
+                              onClick={() => {
+                                setSelectedAtendimentoId(atendimento.id);
+                                clearUnreadCount(atendimento.id);
+                                markMessagesAsRead(atendimento.id);
+                              }}
+                              className={`w-full text-left px-2.5 py-3 rounded-lg transition-all duration-200 hover:scale-[1.01] bg-gradient-to-b from-accent/8 to-transparent ${
+                                selectedAtendimentoId === atendimento.id 
+                                  ? 'border-2 border-primary shadow-md bg-primary/5 ring-2 ring-primary/20' 
+                                  : 'border-2 border-border hover:border-primary/30 hover:shadow-sm'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <ClientAvatar
+                                    name={atendimento.clientes?.push_name || atendimento.clientes?.nome || 'Cliente'}
+                                    imageUrl={atendimento.clientes?.profile_picture_url}
+                                    className="h-10 w-10 border border-accent/30 shrink-0"
+                                  />
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-semibold text-sm block truncate">
+                                        {atendimento.clientes?.push_name || atendimento.clientes?.nome || "Cliente"}
+                                      </span>
+                                      {unreadCounts[atendimento.id] > 0 && (
+                                        <Badge 
+                                          variant="destructive" 
+                                          className="text-[10px] px-1.5 py-0 h-4 min-w-[18px] animate-pulse"
+                                        >
+                                          {unreadCounts[atendimento.id]}
+                                        </Badge>
+                                      )}
+                                      {clientPresence[atendimento.id]?.isTyping && (
+                                        <span className="text-[10px] text-success font-medium flex items-center gap-0.5 shrink-0">
+                                          <span className="inline-block h-1 w-1 rounded-full bg-success animate-pulse" />
+                                          digitando
+                                        </span>
+                                      )}
+                                      {!clientPresence[atendimento.id]?.isTyping && clientPresence[atendimento.id]?.isOnline && (
+                                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-success shrink-0" title="Online" />
+                                      )}
+                                    </div>
+                                    {atendimento.clientes?.telefone && (
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigator.clipboard.writeText(atendimento.clientes.telefone);
+                                          toast.success("Número copiado!");
+                                        }}
+                                        className="flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors max-w-full cursor-pointer"
+                                        title="Copiar número"
+                                      >
+                                        <Phone className="h-2.5 w-2.5 shrink-0" />
+                                        <span className="truncate">{atendimento.clientes.telefone}</span>
+                                        <Copy className="h-2 w-2 shrink-0" />
+                                      </div>
+                                    )}
+                                    {lastMessages[atendimento.id] ? (
+                                      <div className="flex items-start gap-0.5 mt-1">
+                                        {lastMessages[atendimento.id].attachmentType && (
+                                          lastMessages[atendimento.id].attachmentType === 'image' ? (
+                                            <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                          ) : lastMessages[atendimento.id].attachmentType === 'audio' ? (
+                                            <Mic className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                          ) : (
+                                            <File className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                          )
+                                        )}
+                                        <span className="text-[11px] text-muted-foreground line-clamp-1 break-words flex-1">
+                                          {lastMessages[atendimento.id].remetenteTipo === 'vendedor' && (
+                                            <span className="font-medium">Você: </span>
+                                          )}
+                                          {lastMessages[atendimento.id].attachmentType 
+                                            ? lastMessages[atendimento.id].attachmentType === 'image' 
+                                              ? 'Imagem' 
+                                              : lastMessages[atendimento.id].attachmentType === 'audio'
+                                                ? 'Áudio'
+                                                : 'Doc'
+                                            : (lastMessages[atendimento.id].conteudo?.substring(0, 35) || 'Msg') + 
+                                              (lastMessages[atendimento.id].conteudo?.length > 35 ? '...' : '')}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] text-muted-foreground mt-1 block">
+                                        Sem mensagens
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-0.5 shrink-0 ml-0.5">
+                                  <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                                    <span className="whitespace-nowrap text-[11px]">
+                                      {format(new Date(lastMessages[atendimento.id]?.createdAt || atendimento.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                                    </span>
+                                  </div>
+                                  {lastMessages[atendimento.id]?.remetenteTipo === 'vendedor' && (
+                                    <span className="flex items-center">
+                                      {lastMessages[atendimento.id].readAt ? (
+                                        <CheckCheck className="h-2 w-2 text-success" />
+                                      ) : lastMessages[atendimento.id].deliveredAt ? (
+                                        <CheckCheck className="h-2 w-2 opacity-60" />
+                                      ) : (
+                                        <Check className="h-2 w-2 opacity-60" />
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="text-[11px] text-muted-foreground truncate flex-1 min-w-0">
+                                  {atendimento.marca_veiculo} {atendimento.modelo_veiculo}
+                                </p>
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  {lastMessages[atendimento.id]?.isWindowExpired && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-[10px] gap-0.5 px-1 py-0 h-4 border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                      title="Janela de 24h expirada"
+                                    >
+                                      <Clock className="h-2.5 w-2.5" />
+                                      24h
+                                    </Badge>
+                                  )}
+                                  {getStatusBadge(atendimento.status)}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Chat Area */}
+              <Card className="lg:col-span-1 flex flex-col h-[calc(100vh-60px)]">
+                {/* Header do Chat */}
+                <div className="flex items-center justify-between border-b px-4 py-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">Chat</span>
+                    <span className="text-muted-foreground text-xs">|</span>
+                    <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                      <Images className="h-3.5 w-3.5" />
+                      Mídias
+                    </button>
+                  </div>
+                  {selectedAtendimentoId && (
+                    <button
+                      onClick={() => {
+                        const atendimento = atendimentos.find(a => a.id === selectedAtendimentoId);
+                        if (atendimento?.cliente_id && atendimento?.clientes?.nome) {
+                          setDeletingContactInfo({
+                            clienteId: atendimento.cliente_id,
+                            clienteNome: atendimento.clientes.nome,
+                          });
+                        }
+                      }}
+                      className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                      title="Excluir contato"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Messages Area */}
+                <div 
+                  className="flex-1 overflow-hidden"
+                  style={selectedAtendimentoId ? {
+                    backgroundImage:
+                      "linear-gradient(to right, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
+                      "linear-gradient(to bottom, hsl(var(--muted)/0.25) 1px, transparent 1px)," +
+                      "radial-gradient(circle at 20% 20%, hsl(var(--primary)/0.20) 0, transparent 55%)," +
+                      "radial-gradient(circle at 80% 80%, hsl(var(--accent)/0.20) 0, transparent 55%)",
+                    backgroundSize: "18px 18px, 18px 18px, 100% 100%, 100% 100%",
+                  } : {}}
+                >
+                  <ScrollArea className="h-full" ref={scrollRef}>
+                    <div className="p-3">
+                      {!selectedAtendimentoId ? (
+                        <div className="flex flex-col items-center justify-center text-muted-foreground p-6 min-h-[300px]">
+                          <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                          <p>Selecione um atendimento para ver as mensagens</p>
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-muted-foreground min-h-[300px]">
+                          <Bot className="h-12 w-12 mb-4 opacity-50" />
+                          <p>Nenhuma mensagem ainda</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {hasMoreMessages && (
+                            <div className="flex justify-center pb-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleLoadOlderMessages}
+                                disabled={loadingMessages}
+                                className="text-xs"
+                              >
+                                {loadingMessages ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                    Carregando...
+                                  </>
+                                ) : (
+                                  'Carregar mensagens antigas'
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {messages.map((mensagem, index) => {
+                            const previousMessage = index > 0 ? messages[index - 1] : null;
+                            const showSenderName = !previousMessage || previousMessage.remetente_tipo !== mensagem.remetente_tipo;
+                            
+                            return (
+                              <ChatMessage
+                                key={mensagem.id}
+                                messageId={mensagem.id}
+                                remetenteTipo={mensagem.remetente_tipo as "cliente" | "ia" | "supervisor" | "vendedor"}
+                                conteudo={mensagem.conteudo}
+                                createdAt={mensagem.created_at}
+                                attachmentUrl={mensagem.attachment_url}
+                                attachmentType={mensagem.attachment_type}
+                                attachmentFilename={mensagem.attachment_filename}
+                                searchTerm=""
+                                isHighlighted={highlightedMessageId === mensagem.id}
+                                readAt={mensagem.read_at}
+                                deliveredAt={mensagem.delivered_at}
+                                showSenderName={showSenderName}
+                                senderName={
+                                  mensagem.remetente_tipo === 'cliente' 
+                                    ? selectedAtendimento?.clientes?.push_name || selectedAtendimento?.clientes?.nome || 'Cliente'
+                                    : mensagem.remetente_tipo === 'ia' ? 'IA' 
+                                    : vendedorNome
+                                }
+                                status={mensagem.status}
+                              />
+                            );
+                          })}
+                          
+                          {isClientTyping && (
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 max-w-[80px]">
+                              <span className="flex gap-1">
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div ref={messagesEndRef} />
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+                
+                {/* Input Area */}
+                {selectedAtendimentoId && (
+                  <div className="shrink-0 border-t border-border/20 bg-background/95 backdrop-blur-sm">
+                    {isWindowClosed ? (
+                      <WhatsAppWindowAlert 
+                        lastClientMessageAt={lastClientMessageAt}
+                        hoursSinceLast={hoursSinceLast}
+                      />
+                    ) : (
+                      <div className="p-2">
+                        {selectedFile && (
+                          <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {selectedFile.type.startsWith('image/') ? (
+                                <ImageIcon className="h-5 w-5 text-accent shrink-0" />
+                              ) : (
+                                <File className="h-5 w-5 text-accent shrink-0" />
+                              )}
+                              <span className="text-sm font-medium truncate max-w-[200px]">
+                                {selectedFile.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                ({(selectedFile.size / 1024).toFixed(1)} KB)
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => {
+                                setSelectedFile(null);
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.value = "";
+                                }
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2 items-center bg-card/60 backdrop-blur-sm px-2 py-1.5 rounded-2xl shadow-lg border border-border/50">
+                          <Input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt,.csv"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-all duration-300 hover:scale-105 shrink-0"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading || isSending}
+                          >
+                            <Paperclip className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Textarea
+                            ref={messageInputRef}
+                            value={messageInput}
+                            onChange={handleInputChange}
+                            onKeyPress={handleKeyPress}
+                            placeholder="Digite sua mensagem..."
+                            className="min-h-[32px] max-h-[60px] resize-none flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 py-1"
+                            disabled={isSending || isUploading}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleGenerateSuggestion}
+                            disabled={isGeneratingSuggestion || isSending || isUploading || messages.length === 0}
+                            className="h-10 w-10 rounded-xl hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 shrink-0 group"
+                            title="Gerar sugestão de resposta com IA"
+                          >
+                            {isGeneratingSuggestion ? (
+                              <Loader2 className="h-4 w-4 text-purple-500 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4 text-purple-500 group-hover:text-purple-600 transition-colors" />
+                            )}
+                          </Button>
+                          <Button
+                            onClick={selectedFile ? handleSendWithFile : handleSendMessage}
+                            disabled={(!messageInput.trim() && !selectedFile) || isSending || isUploading}
+                            size="icon"
+                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg shadow-green-500/30 transition-all duration-300 hover:scale-105 shrink-0 disabled:opacity-50 disabled:hover:scale-100"
+                          >
+                            {(isSending || isUploading) ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                            ) : (
+                              <Send className="h-4 w-4 text-white" />
+                            )}
+                          </Button>
+                          <AudioRecorder 
+                            onAudioRecorded={handleAudioRecorded}
+                            disabled={isSending || isUploading}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+        </CardContent>
       </Card>
-    </div>
+
+      {/* Delete Contact Dialog */}
+      {deletingContactInfo && (
+        <DeleteContactDialog
+          open={!!deletingContactInfo}
+          onOpenChange={(open) => !open && setDeletingContactInfo(null)}
+          clienteId={deletingContactInfo.clienteId}
+          clienteNome={deletingContactInfo.clienteNome}
+          onSuccess={() => {
+            setSelectedAtendimentoId(null);
+            setDeletingContactInfo(null);
+            if (evolutionInstance) {
+              fetchAtendimentos(evolutionInstance);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
