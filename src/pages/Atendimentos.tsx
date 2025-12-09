@@ -667,7 +667,8 @@ export default function Atendimentos() {
             atendimento_id: selectedAtendimentoIdVendedor,
             remetente_id: vendedorId,
             remetente_tipo: isSupervisor ? 'supervisor' : 'vendedor',
-            conteudo: messageCopy
+            conteudo: messageCopy,
+            source: 'meta'
           })
           .select()
           .single(),
@@ -696,7 +697,8 @@ export default function Atendimentos() {
           },
           body: JSON.stringify({
             to: clienteTelefone,
-            message: formattedMessage
+            message: formattedMessage,
+            source: 'meta'
           })
         })
           .then(async (res) => {
@@ -866,6 +868,7 @@ export default function Atendimentos() {
           mediaUrl: publicUrl,
           filename: selectedFile.name,
           caption: messageInput.trim() || (isImage ? undefined : selectedFile.name),
+          source: 'meta',
         },
       });
 
@@ -888,6 +891,7 @@ export default function Atendimentos() {
           attachment_type: attachmentType,
           attachment_filename: selectedFile.name,
           whatsapp_message_id: whatsappData?.messageId,
+          source: 'meta'
         });
 
       if (messageError) {
@@ -1040,6 +1044,7 @@ export default function Atendimentos() {
         body: {
           to: clienteTelefone,
           audioUrl: finalAudioUrl,
+          source: 'meta',
         },
       });
 
@@ -1057,6 +1062,7 @@ export default function Atendimentos() {
           attachment_type: 'audio',
           attachment_filename: fileName,
           whatsapp_message_id: data?.messageId,
+          source: 'meta'
         });
 
       if (dbError) throw dbError;
