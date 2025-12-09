@@ -38,15 +38,39 @@ async function handleEvolutionWebhook(req: Request, supabase: SupabaseClient) {
       }
 
       // Extract phone number from remoteJid
+      // Support multiple formats: @s.whatsapp.net, @c.us, @lid (list/internal)
       const remoteJid = message.key?.remoteJid || '';
-      const from = remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
       
-      if (!from || from.includes('@g.us')) {
-        console.log('Skipping group message or invalid sender');
+      // Skip group messages
+      if (remoteJid.includes('@g.us')) {
+        console.log('Skipping group message');
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      
+      // Extract phone number - handle all possible formats
+      let from = remoteJid
+        .replace('@s.whatsapp.net', '')
+        .replace('@c.us', '')
+        .replace('@lid', '');
+      
+      // If sender field is available, use it as fallback (more reliable)
+      if (body.sender) {
+        const senderPhone = body.sender.replace('@s.whatsapp.net', '').replace('@c.us', '');
+        if (senderPhone && /^\d+$/.test(senderPhone)) {
+          from = senderPhone;
+        }
+      }
+      
+      if (!from || !/^\d+$/.test(from)) {
+        console.log('Skipping message with invalid sender:', remoteJid, 'extracted:', from);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log(`Valid Evolution message from ${from} via ${instanceName}`);
 
       const messageId = message.key?.id || '';
       const pushName = message.pushName || '';
