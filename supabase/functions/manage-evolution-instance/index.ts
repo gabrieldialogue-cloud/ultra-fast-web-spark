@@ -161,6 +161,42 @@ serve(async (req) => {
       const instanceResult = await createResponse.json();
       console.log('Instance created:', instanceResult);
 
+      // Configure webhook for this instance
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-webhook?source=evolution`;
+      console.log('Configuring webhook for new instance:', instanceName, 'URL:', webhookUrl);
+      
+      try {
+        const webhookResponse = await fetch(`${apiUrl}/webhook/set/${instanceName}`, {
+          method: 'POST',
+          headers: {
+            'apikey': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            enabled: true,
+            url: webhookUrl,
+            webhookByEvents: false,
+            webhookBase64: true,
+            events: [
+              'MESSAGES_UPSERT',
+              'MESSAGES_UPDATE',
+              'CONNECTION_UPDATE',
+              'QRCODE_UPDATED',
+            ],
+          }),
+        });
+        
+        if (webhookResponse.ok) {
+          console.log('Webhook configured successfully for', instanceName);
+        } else {
+          const webhookError = await webhookResponse.text();
+          console.error('Error configuring webhook:', webhookError);
+        }
+      } catch (webhookErr) {
+        console.error('Error configuring webhook:', webhookErr);
+      }
+
       // Get QR Code
       const qrResponse = await fetch(`${apiUrl}/instance/connect/${instanceName}`, {
         headers: {
