@@ -43,6 +43,18 @@ export function useAtendimentos() {
           fetchAtendimentos();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'mensagens'
+        },
+        (payload) => {
+          console.log('Message updated (delivery/read status), refreshing...', payload);
+          fetchAtendimentos();
+        }
+      )
       .subscribe();
 
     return () => {
