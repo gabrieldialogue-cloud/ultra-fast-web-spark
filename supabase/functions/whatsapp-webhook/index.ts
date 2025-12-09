@@ -37,7 +37,7 @@ async function handleEvolutionWebhook(req: Request, supabase: SupabaseClient) {
         });
       }
 
-      // Extract phone number from remoteJid
+      // Extract phone number from remoteJid - this is the CLIENT who sent the message
       // Support multiple formats: @s.whatsapp.net, @c.us, @lid (list/internal)
       const remoteJid = message.key?.remoteJid || '';
       
@@ -49,28 +49,24 @@ async function handleEvolutionWebhook(req: Request, supabase: SupabaseClient) {
         });
       }
       
-      // Extract phone number - handle all possible formats
+      // Extract phone number from remoteJid - this is the CLIENT's number
+      // IMPORTANT: body.sender is the INSTANCE number (vendor's personal number), NOT the client!
       let from = remoteJid
         .replace('@s.whatsapp.net', '')
         .replace('@c.us', '')
         .replace('@lid', '');
       
-      // If sender field is available, use it as fallback (more reliable)
-      if (body.sender) {
-        const senderPhone = body.sender.replace('@s.whatsapp.net', '').replace('@c.us', '');
-        if (senderPhone && /^\d+$/.test(senderPhone)) {
-          from = senderPhone;
-        }
-      }
-      
+      // If remoteJid gave us an invalid number (like @lid format), skip this message
+      // DO NOT use body.sender as it's the instance number, not the client
       if (!from || !/^\d+$/.test(from)) {
-        console.log('Skipping message with invalid sender:', remoteJid, 'extracted:', from);
+        console.log('Skipping message with invalid remoteJid:', remoteJid, 'extracted:', from);
+        console.log('Note: body.sender is the instance number, not the client:', body.sender);
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       
-      console.log(`Valid Evolution message from ${from} via ${instanceName}`);
+      console.log(`Valid Evolution message from CLIENT ${from} via instance ${instanceName}`);
 
       const messageId = message.key?.id || `evo-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const pushName = message.pushName || data.pushName || '';
