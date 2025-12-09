@@ -538,6 +538,57 @@ export function EvolutionInstanceManager({
       });
     }
   };
+  
+  // Configure webhooks for all instances
+  const configureAllWebhooks = async () => {
+    if (!evolutionApiUrl || !evolutionApiKey) {
+      toast({
+        title: "Credenciais necessárias",
+        description: "Configure a conexão com Evolution API primeiro",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-evolution-instance', {
+        body: {
+          action: 'configure_all_webhooks',
+          evolutionApiUrl,
+          evolutionApiKey,
+          instanceData: {
+            webhookUrl: `https://ptwrrcqttnvcvlnxsvut.supabase.co/functions/v1/whatsapp-webhook?source=evolution`
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast({
+          title: "Webhooks configurados",
+          description: data.message || "Webhooks configurados com sucesso"
+        });
+      } else {
+        toast({
+          title: "Erro ao configurar webhooks",
+          description: data?.message || "Erro desconhecido",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error configuring webhooks:', error);
+      toast({
+        title: "Erro ao configurar webhooks",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const associateInstanceToVendedor = async () => {
     if (!instanceToAssociate || !vendedorToAssociate) {
       toast({
@@ -671,13 +722,17 @@ export function EvolutionInstanceManager({
                 {instances.length} instância(s) • Atualização automática: {pollingEnabled ? 'Ativa' : 'Pausada'}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => setPollingEnabled(!pollingEnabled)} title={pollingEnabled ? "Pausar atualização automática" : "Ativar atualização automática"}>
                 {pollingEnabled ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
               <Button variant="outline" size="sm" onClick={() => fetchInstances()} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
                 Atualizar
+              </Button>
+              <Button variant="outline" size="sm" onClick={configureAllWebhooks} disabled={loading} title="Configurar webhooks para receber mensagens">
+                <Link className="h-4 w-4 mr-1" />
+                Configurar Webhooks
               </Button>
               <Button size="sm" onClick={() => setShowCreateForm(true)} className="bg-green-500 hover:bg-green-600">
                 <Plus className="h-4 w-4 mr-1" />
