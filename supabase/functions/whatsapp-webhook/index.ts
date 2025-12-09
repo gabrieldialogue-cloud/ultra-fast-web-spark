@@ -72,8 +72,8 @@ async function handleEvolutionWebhook(req: Request, supabase: SupabaseClient) {
       
       console.log(`Valid Evolution message from ${from} via ${instanceName}`);
 
-      const messageId = message.key?.id || '';
-      const pushName = message.pushName || '';
+      const messageId = message.key?.id || `evo-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const pushName = message.pushName || data.pushName || '';
       const timestamp = message.messageTimestamp 
         ? new Date(parseInt(message.messageTimestamp) * 1000).toISOString() 
         : new Date().toISOString();
@@ -174,9 +174,12 @@ async function handleEvolutionWebhook(req: Request, supabase: SupabaseClient) {
       let attachmentType = null;
       let attachmentFilename = null;
 
-      const messageData = message.message || {};
+      const messageData = message.message || message || {};
       
+      // Handle conversation type - may have messageContextInfo wrapper
       if (messageData.conversation) {
+        messageContent = messageData.conversation;
+      } else if (message.messageType === 'conversation' && messageData.conversation) {
         messageContent = messageData.conversation;
       } else if (messageData.extendedTextMessage?.text) {
         messageContent = messageData.extendedTextMessage.text;
@@ -251,22 +254,35 @@ async function handleEvolutionWebhook(req: Request, supabase: SupabaseClient) {
           }
         }
       } else {
-        console.log('Unsupported Evolution message type:', Object.keys(messageData));
-        messageContent = '[Mensagem não suportada]';
+        // Try to extract text from any property
+        const possibleTextKeys = ['text', 'body', 'caption'];
+        for (const key of possibleTextKeys) {
+          if (messageData[key]) {
+            messageContent = messageData[key];
+            break;
+          }
+        }
+        
+        if (!messageContent) {
+          console.log('Unsupported Evolution message type:', Object.keys(messageData));
+          messageContent = '[Mensagem não suportada]';
+        }
       }
 
-      // Check for duplicate message
-      const { data: existingMsg } = await supabase
-        .from('mensagens')
-        .select('id')
-        .eq('whatsapp_message_id', messageId)
-        .single();
+      // Check for duplicate message - only if we have a real messageId (not generated)
+      if (messageId && !messageId.startsWith('evo-')) {
+        const { data: existingMsg } = await supabase
+          .from('mensagens')
+          .select('id')
+          .eq('whatsapp_message_id', messageId)
+          .single();
 
-      if (existingMsg) {
-        console.log('Duplicate Evolution message, skipping:', messageId);
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        if (existingMsg) {
+          console.log('Duplicate Evolution message, skipping:', messageId);
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
 
       // Insert message
